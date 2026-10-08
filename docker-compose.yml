@@ -1,0 +1,15 @@
+# Banco PostgreSQL para desenvolvimento local: docker compose up -d
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: horus
+    ports:
+      - "5432:5432"
+    volumes:
+      - horus-db:/var/lib/postgresql/data
+volumes:
+  horus-db:

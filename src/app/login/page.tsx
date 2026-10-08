@@ -1,11 +1,16 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { prisma } from "@/lib/db";
 import { Logo } from "@/components/ui";
 import LoginForm from "./LoginForm";
 
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Entrar" };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const { next } = await searchParams;
+  // sistema recém-instalado: leva para a configuração inicial
+  if ((await prisma.user.count()) === 0) redirect("/setup");
   return (
     <div className="flex min-h-screen items-center justify-center bg-horus-950 px-4">
       <div className="w-full max-w-sm">

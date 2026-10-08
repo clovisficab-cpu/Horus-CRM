@@ -1,15 +1,14 @@
-// Horus Videomonitoramento — modelo de dados
-// SQLite em desenvolvimento. Para produção, troque o provider para "postgresql".
-// Campos "enum" são strings (SQLite não suporta enums); os valores válidos
-// estão documentados em src/lib/constants.ts.
+// Horus Videomonitoramento — modelo de dados (PostgreSQL)
+// Campos "enum" são strings; os valores válidos estão em src/lib/constants.ts.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // conexão com pool (usada pela aplicação)
+  directUrl = env("DIRECT_URL") // conexão direta (usada pelas migrações)
 }
 
 /// Usuários do sistema: equipe interna (ADMIN, AGENT, TECH) e clientes (CLIENT)

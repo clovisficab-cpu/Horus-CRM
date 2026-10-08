@@ -23,9 +23,9 @@ export default async function TicketsPage({ searchParams }: { searchParams: Prom
   if (sp.q) {
     const n = Number(sp.q.replace(/\D/g, ""));
     where.OR = [
-      { subject: { contains: sp.q } },
-      { customer: { name: { contains: sp.q } } },
-      { contactName: { contains: sp.q } },
+      { subject: { contains: sp.q, mode: "insensitive" } },
+      { customer: { name: { contains: sp.q, mode: "insensitive" } } },
+      { contactName: { contains: sp.q, mode: "insensitive" } },
       ...(n ? [{ number: n }] : []),
     ];
   }

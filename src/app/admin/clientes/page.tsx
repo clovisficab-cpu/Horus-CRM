@@ -11,7 +11,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   await requireStaff(["ADMIN", "AGENT"]);
   const where: Prisma.CustomerWhereInput = {};
   if (sp.status) where.status = sp.status;
-  if (sp.q) where.OR = [{ name: { contains: sp.q } }, { document: { contains: sp.q } }, { email: { contains: sp.q } }, { phone: { contains: sp.q } }, { city: { contains: sp.q } }];
+  if (sp.q) where.OR = [{ name: { contains: sp.q, mode: "insensitive" } }, { document: { contains: sp.q, mode: "insensitive" } }, { email: { contains: sp.q, mode: "insensitive" } }, { phone: { contains: sp.q, mode: "insensitive" } }, { city: { contains: sp.q, mode: "insensitive" } }];
 
   const customers = await prisma.customer.findMany({
     where,

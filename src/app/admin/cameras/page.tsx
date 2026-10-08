@@ -11,7 +11,7 @@ export default async function CamerasPage({ searchParams }: { searchParams: Prom
   const cameras = await prisma.camera.findMany({
     where: {
       ...(sp.status ? { status: sp.status } : {}),
-      ...(sp.q ? { OR: [{ name: { contains: sp.q } }, { location: { contains: sp.q } }, { customer: { name: { contains: sp.q } } }] } : {}),
+      ...(sp.q ? { OR: [{ name: { contains: sp.q, mode: "insensitive" } }, { location: { contains: sp.q, mode: "insensitive" } }, { customer: { name: { contains: sp.q, mode: "insensitive" } } }] } : {}),
     },
     orderBy: [{ status: "desc" }, { name: "asc" }],
     include: { customer: { select: { id: true, name: true } } },

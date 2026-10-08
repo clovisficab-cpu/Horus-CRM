@@ -40,33 +40,41 @@ Hero e campanhas gerenciáveis pelo painel (**Site e banners**), serviços, plan
 
 ## Tecnologia
 - **Next.js 15** (App Router, Server Actions) + **TypeScript** + **Tailwind CSS 4**
-- **Prisma** (SQLite em desenvolvimento; PostgreSQL em produção)
+- **Prisma** + **PostgreSQL**
 - **Claude (Anthropic API)** para a IA, com fallback por regras quando não há chave
 - **WhatsApp Cloud API** (Meta)
 - **hls.js** para reprodução das câmeras
 
-## Como rodar
+## Publicar na internet
+
+Veja o passo a passo em **[DEPLOY.md](DEPLOY.md)**: Vercel + Neon (PostgreSQL), com plano gratuito. No primeiro acesso, a tela `/setup` cria o administrador.
+
+## Rodar localmente
+
+Requer Node.js 20+ e Docker (para o PostgreSQL).
 
 ```bash
 npm install
 cp .env.example .env        # ajuste as variáveis
-npx prisma db push          # cria o banco
-npm run db:seed             # dados de demonstração
+docker compose up -d        # sobe o PostgreSQL local
+npm run db:deploy           # cria as tabelas
+npm run db:seed             # dados de demonstração (opcional)
 npm run dev                 # http://localhost:3000
 ```
 
-Acessos de demonstração:
+Acessos de demonstração criados pelo `db:seed`:
 - Equipe: `admin@horus.com.br` / `horus123` (também `ana@` = atendente e `carlos@` = técnico)
 - Cliente: `cliente@horus.com.br` / `cliente123`
 
-> Troque essas senhas antes de qualquer uso real.
+Sem o seed, acesse `/login`: o sistema leva para `/setup`, onde você cria o primeiro administrador.
 
 ## Configuração
 
 | Variável | Para quê |
 |---|---|
-| `DATABASE_URL` | Banco de dados |
+| `DATABASE_URL` / `DIRECT_URL` | PostgreSQL: conexão com pool (aplicação) e direta (migrações) |
 | `AUTH_SECRET` | Segredo das sessões (**obrigatório em produção**) |
+| `SETUP_TOKEN` | Código pedido na tela `/setup` para criar o primeiro administrador (**obrigatório em produção**) |
 | `ANTHROPIC_API_KEY` | Ativa a IA (triagem, sugestões, bot). Sem ela o sistema usa regras de palavras-chave |
 | `AI_MODEL` | Modelo do Claude (padrão `claude-opus-5-5`) |
 | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` | Envio de mensagens. Sem eles, fica em modo simulação |
@@ -92,14 +100,15 @@ curl -X POST https://SEU_DOMINIO/api/cameras/status \
   -d '{"cameraId":"<id exibido na tela da câmera>","status":"OFFLINE"}'
 ```
 
-### Produção
-- Troque `provider = "sqlite"` por `"postgresql"` em `prisma/schema.prisma` e aponte `DATABASE_URL` para o Postgres.
-- `npm run build && npm start` (ou deploy na Vercel/Railway/VPS).
+### Banco de dados
+Alterações no `prisma/schema.prisma` viram migrações com `npm run db:migrate`. O `npm run build` aplica as migrações pendentes (`prisma migrate deploy`) antes de compilar.
 
 ## Estrutura
 ```
 prisma/schema.prisma      modelo de dados
-prisma/seed.ts            dados de demonstração
+prisma/migrations         migrações do banco
+prisma/seed.ts            dados de demonstração (CLI)
+src/lib/demo-data.ts      dados de demonstração (usados pelo seed e pelo /setup)
 src/lib/ai.ts             IA (triagem, sugestão de resposta, bot)
 src/lib/bot.ts            fluxo do WhatsApp (contexto, ações, envio)
 src/lib/whatsapp.ts       cliente da WhatsApp Cloud API
