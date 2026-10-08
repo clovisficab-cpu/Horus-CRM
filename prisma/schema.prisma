@@ -1,0 +1,280 @@
+// Horus Videomonitoramento — modelo de dados
+// SQLite em desenvolvimento. Para produção, troque o provider para "postgresql".
+// Campos "enum" são strings (SQLite não suporta enums); os valores válidos
+// estão documentados em src/lib/constants.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Usuários do sistema: equipe interna (ADMIN, AGENT, TECH) e clientes (CLIENT)
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("AGENT") // ADMIN | AGENT | TECH | CLIENT
+  phone        String?
+  active       Boolean  @default(true)
+  customerId   String?
+  customer     Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignedTickets Ticket[]        @relation("TicketAssignee")
+  ticketMessages  TicketMessage[]
+  leads           Lead[]
+  serviceOrders   ServiceOrder[]
+  activities      Activity[]
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  type      String   @default("PJ") // PF | PJ
+  document  String?  // CPF / CNPJ
+  email     String?
+  phone     String?
+  whatsapp  String?  // somente dígitos com DDI, ex: 5511999998888
+  address   String?
+  city      String?
+  state     String?
+  status    String   @default("ACTIVE") // ACTIVE | SUSPENDED | INACTIVE
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  contracts     Contract[]
+  invoices      Invoice[]
+  cameras       Camera[]
+  tickets       Ticket[]
+  serviceOrders ServiceOrder[]
+  conversations WhatsAppConversation[]
+  activities    Activity[]
+  leads         Lead[]
+}
+
+/// Funil comercial
+model Lead {
+  id         String   @id @default(cuid())
+  name       String
+  company    String?
+  email      String?
+  phone      String?
+  source     String   @default("SITE") // SITE | WHATSAPP | INDICACAO | TELEFONE | OUTRO
+  stage      String   @default("NEW") // NEW | CONTACTED | VISIT | PROPOSAL | NEGOTIATION | WON | LOST
+  interest   String?  // ex: residencial, condomínio, empresa
+  value      Float?   // valor mensal estimado
+  notes      String?
+  ownerId    String?
+  owner      User?     @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  customerId String?  // preenchido quando o lead é convertido
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  activities Activity[]
+}
+
+model Plan {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  monthlyPrice  Float
+  cameraLimit   Int      @default(4)
+  retentionDays Int      @default(7)
+  features      String?  // uma feature por linha
+  featured      Boolean  @default(false)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  contracts Contract[]
+}
+
+model Contract {
+  id           String    @id @default(cuid())
+  customerId   String
+  customer     Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  planId       String
+  plan         Plan      @relation(fields: [planId], references: [id])
+  monthlyValue Float
+  dueDay       Int       @default(10)
+  startDate    DateTime  @default(now())
+  endDate      DateTime?
+  status       String    @default("ACTIVE") // ACTIVE | SUSPENDED | CANCELLED
+  createdAt    DateTime  @default(now())
+
+  invoices Invoice[]
+}
+
+model Invoice {
+  id         String    @id @default(cuid())
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contractId String?
+  contract   Contract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  reference  String    // ex: 2026-10
+  amount     Float
+  dueDate    DateTime
+  paidAt     DateTime?
+  status     String    @default("OPEN") // OPEN | PAID | OVERDUE | CANCELLED
+  createdAt  DateTime  @default(now())
+}
+
+model Camera {
+  id          String    @id @default(cuid())
+  name        String
+  location    String?
+  description String?
+  customerId  String?   // nulo = câmera da Horus (ex: vitrine pública)
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  streamType  String    @default("HLS") // HLS | MJPEG | IFRAME | IMAGE
+  streamUrl   String?
+  thumbnail   String?
+  isPublic    Boolean   @default(false) // exibida na vitrine do site
+  status      String    @default("ONLINE") // ONLINE | OFFLINE | MAINTENANCE
+  brand       String?
+  ipAddress   String?
+  lastSeenAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tickets Ticket[]
+}
+
+/// Chamados de suporte
+model Ticket {
+  id          String    @id @default(cuid())
+  number      Int       @unique
+  subject     String
+  description String
+  category    String    @default("OTHER") // CAMERA_OFFLINE | IMAGE_QUALITY | FOOTAGE_REQUEST | ACCESS | BILLING | INSTALLATION | MAINTENANCE | OTHER
+  priority    String    @default("MEDIUM") // LOW | MEDIUM | HIGH | URGENT
+  status      String    @default("OPEN") // OPEN | IN_PROGRESS | WAITING_CUSTOMER | RESOLVED | CLOSED
+  channel     String    @default("WEB") // WEB | PORTAL | WHATSAPP | PHONE | EMAIL
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  cameraId    String?
+  camera      Camera?   @relation(fields: [cameraId], references: [id], onDelete: SetNull)
+  assigneeId  String?
+  assignee    User?     @relation("TicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  contactName  String?
+  contactPhone String?
+  aiSummary   String?
+  slaDueAt    DateTime?
+  resolvedAt  DateTime?
+  rating      Int?      // avaliação 1-5 do cliente
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  messages      TicketMessage[]
+  serviceOrders ServiceOrder[]
+}
+
+model TicketMessage {
+  id         String   @id @default(cuid())
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorType String   // CUSTOMER | AGENT | AI | SYSTEM
+  authorId   String?
+  author     User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  body       String
+  internal   Boolean  @default(false) // nota interna (não visível ao cliente)
+  createdAt  DateTime @default(now())
+}
+
+/// Ordens de serviço / visitas técnicas (instalação, manutenção, retirada)
+model ServiceOrder {
+  id           String    @id @default(cuid())
+  type         String    @default("MAINTENANCE") // INSTALLATION | MAINTENANCE | REMOVAL | INSPECTION
+  status       String    @default("SCHEDULED") // SCHEDULED | IN_PROGRESS | DONE | CANCELLED
+  customerId   String
+  customer     Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  ticketId     String?
+  ticket       Ticket?   @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  technicianId String?
+  technician   User?     @relation(fields: [technicianId], references: [id], onDelete: SetNull)
+  scheduledAt  DateTime
+  address      String?
+  notes        String?
+  report       String?   // relatório do técnico
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+}
+
+/// Conversas de WhatsApp (bot de IA + atendimento humano)
+model WhatsAppConversation {
+  id            String    @id @default(cuid())
+  phone         String    @unique
+  contactName   String?
+  customerId    String?
+  customer      Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  mode          String    @default("BOT") // BOT | HUMAN
+  unread        Int       @default(0)
+  lastMessageAt DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+
+  messages WhatsAppMessage[]
+}
+
+model WhatsAppMessage {
+  id             String               @id @default(cuid())
+  conversationId String
+  conversation   WhatsAppConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  direction      String               // IN | OUT
+  sender         String               // CUSTOMER | AI | AGENT | SYSTEM
+  body           String
+  waMessageId    String?              @unique
+  status         String?              // sent | delivered | read | failed | simulated
+  createdAt      DateTime             @default(now())
+}
+
+/// Linha do tempo do CRM
+model Activity {
+  id          String    @id @default(cuid())
+  type        String    // NOTE | CALL | EMAIL | WHATSAPP | MEETING | VISIT | SYSTEM
+  description String
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  leadId      String?
+  lead        Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+}
+
+/// Banners / campanhas exibidos no site institucional e no portal
+model Banner {
+  id        String   @id @default(cuid())
+  title     String
+  subtitle  String?
+  ctaLabel  String?
+  ctaUrl    String?
+  imageUrl  String?
+  placement String   @default("HOME") // HOME | PORTAL
+  active    Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+/// Base de conhecimento usada pela IA e exibida no portal (FAQ)
+model KnowledgeArticle {
+  id        String   @id @default(cuid())
+  question  String
+  answer    String
+  category  String?
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Setting {
+  key   String @id
+  value String
+}
