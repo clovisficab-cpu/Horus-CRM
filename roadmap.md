@@ -1,0 +1,18 @@
+# Trabalho atual
+- [ ] WhatsApp: camada de provedor e simulação sem credenciais.
+- [ ] WhatsApp: conversas, mensagens e recebimento durável com acesso só da equipe.
+- [ ] WhatsApp: robô com IA e ações em chamados.
+- [ ] WhatsApp: tela, simulador e envio de respostas públicas dos chamados.
+- [ ] WhatsApp: testes, fluxo real em simulação e build limpo.
+- [x] Financeiro: cards, gerar faturas do mês sem duplicar, atualizar vencidas, baixa/estorno/cancelar, contratos.
+- [x] Criar ordens de serviço com acesso exclusivo da equipe e conclusão registrada.
+- [x] Adicionar lista, filtros, formulário, mapa e agendamento nas fichas.
+- [x] Adicionar Visitas hoje e verificar testes, fluxo e build.
+- [x] Adicionar triagem IA com fallback na abertura de chamados.
+- [x] Adicionar resumo da equipe e sugestão de resposta revisável sem notas internas.
+- [x] Criar base de conhecimento da equipe com cinco exemplos.
+- [x] Conferir testes e log de build; fluxo de IA ainda sem cliente permanente para validação completa.
+- [x] Corrigir erros existentes e conferir o log final (build OK).
+- [x] Completar início, câmeras, financeiro e cabeçalho do portal com dados do cliente.
+- [x] Verificar navegação, proteção sem sessão e apresentação com dados temporários; 7 testes passaram.
+- [ ] Validar acesso com uma conta real de cliente — bloqueado: ainda não existem contas cadastradas.

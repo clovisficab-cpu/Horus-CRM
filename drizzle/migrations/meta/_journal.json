@@ -1,0 +1,62 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791464307524,
+      "tag": "0000_migration",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792110618644,
+      "tag": "0001_chamados",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792285542972,
+      "tag": "0002_chamados_ia_conhecimento",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792369324370,
+      "tag": "0003_ordens_servico",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792369533694,
+      "tag": "0004_ordens_servico_restringir_grants",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792555908508,
+      "tag": "0005_whatsapp_simulacao",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792555972723,
+      "tag": "0006_whatsapp_acoes_bot",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792634727685,
+      "tag": "0007_whatsapp_aplicar_acao_chamado_opcional",
+      "breakpoints": true
+    }
+  ]
+}

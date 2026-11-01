@@ -1,89 +1,104 @@
-"use client";
-
 import { useEffect, useRef, useState } from "react";
+import { VideoOff, Wrench } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-type Props = {
-  streamType: string;
-  streamUrl: string | null;
-  thumbnail?: string | null;
-  status?: string;
-  title?: string;
-  autoPlay?: boolean;
+export type CameraLike = {
+  nome: string;
+  local?: string | null;
+  tipo_stream: string;
+  stream_url: string | null;
+  imagem_capa?: string | null;
+  status: string;
 };
 
-/** Player de câmera: HLS (hls.js), MJPEG, iframe (ex.: player do NVR/YouTube) ou snapshot atualizado */
-export default function CameraPlayer({ streamType, streamUrl, thumbnail, status = "ONLINE", title, autoPlay = true }: Props) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [tick, setTick] = useState(0);
-
+function HlsVideo({ url, poster }: { url: string; poster?: string | null | undefined }) {
+  const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
-    if (streamType !== "HLS" || !streamUrl || status !== "ONLINE") return;
-    const video = videoRef.current;
+    const video = ref.current;
     if (!video) return;
-    let hls: import("hls.js").default | null = null;
-    setError(null);
-
+    let hls: { destroy: () => void } | null = null;
+    let cancelled = false;
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = streamUrl; // Safari / iOS
+      video.src = url;
+      video.play().catch(() => {});
     } else {
       import("hls.js").then(({ default: Hls }) => {
-        if (!Hls.isSupported()) {
-          setError("Navegador sem suporte a HLS");
-          return;
-        }
-        hls = new Hls({ liveDurationInfinity: true });
-        hls.loadSource(streamUrl);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.ERROR, (_e, data) => {
-          if (data.fatal) setError("Não foi possível carregar o vídeo");
-        });
+        if (cancelled || !Hls.isSupported()) return;
+        const h = new Hls({ lowLatencyMode: true });
+        h.loadSource(url);
+        h.attachMedia(video);
+        h.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+        hls = h;
       });
     }
-    return () => hls?.destroy();
-  }, [streamType, streamUrl, status]);
-
-  useEffect(() => {
-    if (streamType !== "IMAGE") return;
-    const id = setInterval(() => setTick((t) => t + 1), 5000);
-    return () => clearInterval(id);
-  }, [streamType]);
-
-  const overlay = (msg: string) => (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-horus-950/80 text-center text-sm text-slate-200">
-      <span className="text-3xl">📷</span>
-      {msg}
-    </div>
-  );
-
+    return () => {
+      cancelled = true;
+      hls?.destroy();
+    };
+  }, [url]);
   return (
-    <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black">
-      {status === "ONLINE" && streamUrl && streamType === "HLS" && (
-        <video ref={videoRef} className="h-full w-full object-contain" muted autoPlay={autoPlay} playsInline controls poster={thumbnail ?? undefined} />
+    <video
+      ref={ref}
+      muted
+      autoPlay
+      playsInline
+      loop
+      poster={poster ?? undefined}
+      className="h-full w-full object-cover"
+    />
+  );
+}
+
+function RefreshingImage({ url, alt }: { url: string; alt: string }) {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const i = setInterval(() => setTick((t) => t + 1), 5000);
+    return () => clearInterval(i);
+  }, []);
+  const src = tick === 0 ? url : `${url}${url.includes("?") ? "&" : "?"}_t=${tick}`;
+  return <img src={src} alt={alt} className="h-full w-full object-cover" />;
+}
+
+export function CameraPlayer({ camera, className }: { camera: CameraLike; className?: string }) {
+  const streamUrl = camera.status === "online" ? camera.stream_url : null;
+  const indisponivel = !streamUrl;
+  return (
+    <div
+      className={cn(
+        "relative aspect-video overflow-hidden rounded-xl border border-border bg-navy-deep shadow-card",
+        className,
       )}
-      {status === "ONLINE" && streamUrl && streamType === "MJPEG" && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={streamUrl} alt={title ?? "Câmera"} className="h-full w-full object-contain" onError={() => setError("Falha no stream MJPEG")} />
-      )}
-      {status === "ONLINE" && streamUrl && streamType === "IMAGE" && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={`${streamUrl}${streamUrl.includes("?") ? "&" : "?"}t=${tick}`} alt={title ?? "Câmera"} className="h-full w-full object-contain" />
-      )}
-      {status === "ONLINE" && streamUrl && streamType === "IFRAME" && (
-        <iframe src={streamUrl} title={title ?? "Câmera"} className="h-full w-full" allow="autoplay; fullscreen" allowFullScreen />
+    >
+      {!streamUrl ? (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground">
+          {camera.imagem_capa && (
+            <img src={camera.imagem_capa} alt="" className="absolute inset-0 h-full w-full object-cover opacity-20" />
+          )}
+          {camera.status === "manutencao" ? <Wrench className="h-8 w-8 text-warning" /> : <VideoOff className="h-8 w-8" />}
+          <span className="relative text-sm font-medium">
+            {camera.status === "manutencao" ? "Em manutenção" : "Câmera offline"}
+          </span>
+        </div>
+      ) : camera.tipo_stream === "hls" ? (
+        <HlsVideo url={streamUrl} poster={camera.imagem_capa} />
+      ) : camera.tipo_stream === "iframe" ? (
+        <iframe src={streamUrl} title={camera.nome} className="h-full w-full" allow="autoplay; fullscreen" />
+      ) : camera.tipo_stream === "imagem" ? (
+        <RefreshingImage url={streamUrl} alt={camera.nome} />
+      ) : (
+        <img src={streamUrl} alt={camera.nome} className="h-full w-full object-cover" />
       )}
 
-      {status === "OFFLINE" && overlay("Câmera offline no momento")}
-      {status === "MAINTENANCE" && overlay("Câmera em manutenção")}
-      {status === "ONLINE" && !streamUrl && overlay("Stream não configurado")}
-      {error && overlay(error)}
-
-      {status === "ONLINE" && streamUrl && (
-        <span className="absolute left-2 top-2 flex items-center gap-1 rounded bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> ao vivo
-        </span>
+      {!indisponivel && (
+        <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-md bg-live px-2 py-1 text-[0.65rem] font-bold tracking-wider text-destructive-foreground">
+          <span className="h-1.5 w-1.5 animate-live rounded-full bg-destructive-foreground" />
+          AO VIVO
+        </div>
       )}
-      {title && <span className="absolute bottom-2 left-2 rounded bg-black/60 px-2 py-0.5 text-xs text-white">{title}</span>}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-navy-deep/90 to-transparent p-3">
+        <div className="text-sm font-semibold text-foreground">{camera.nome}</div>
+        {camera.local && <div className="text-xs text-muted-foreground">{camera.local}</div>}
+      </div>
     </div>
   );
 }

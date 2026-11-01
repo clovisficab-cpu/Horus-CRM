@@ -1,44 +1,48 @@
-export function brl(value: number | null | undefined) {
-  if (value == null) return "—";
-  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
+export const brl = (v: number | string | null | undefined) =>
+  Number(v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-export function date(d: Date | string | null | undefined) {
+export const dataBR = (d: string | null | undefined) => {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
-}
+  const s = d.length === 10 ? d + "T12:00:00" : d;
+  return new Date(s).toLocaleDateString("pt-BR");
+};
 
-export function dateTime(d: Date | string | null | undefined) {
-  if (!d) return "—";
-  return new Date(d).toLocaleString("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+export const dataHoraBR = (d: string | null | undefined) =>
+  d ? new Date(d).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—";
 
-/** Valor para <input type="datetime-local"> */
-export function toInputDateTime(d: Date | null | undefined) {
-  if (!d) return "";
-  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 16);
-}
+export const ETAPAS = [
+  { id: "novo", label: "Novo" },
+  { id: "contato", label: "Contato feito" },
+  { id: "visita", label: "Visita técnica" },
+  { id: "proposta", label: "Proposta" },
+  { id: "negociacao", label: "Negociação" },
+  { id: "ganho", label: "Ganho" },
+  { id: "perdido", label: "Perdido" },
+] as const;
 
-export function onlyDigits(s: string | null | undefined) {
-  return (s ?? "").replace(/\D/g, "");
-}
+export const ORIGENS: Record<string, string> = {
+  site: "Site",
+  whatsapp: "WhatsApp",
+  indicacao: "Indicação",
+  telefone: "Telefone",
+};
 
-/** Normaliza telefone brasileiro para o formato do WhatsApp (55 + DDD + número) */
-export function normalizePhone(s: string | null | undefined) {
-  const d = onlyDigits(s);
-  if (!d) return "";
-  if (d.length <= 11) return "55" + d;
-  return d;
-}
+export const STATUS_FATURA: Record<string, string> = {
+  em_aberto: "Em aberto",
+  pago: "Pago",
+  vencido: "Vencido",
+  cancelado: "Cancelado",
+};
 
-export function ticketCode(n: number) {
-  return "#" + String(n).padStart(5, "0");
-}
+export const STATUS_CAMERA: Record<string, string> = {
+  online: "Online",
+  offline: "Offline",
+  manutencao: "Manutenção",
+};
+
+export const PAPEIS: Record<string, string> = {
+  admin: "Administrador",
+  atendente: "Atendente",
+  tecnico: "Técnico",
+  cliente: "Cliente",
+};

@@ -1,63 +1,23 @@
-import "server-only";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import bcrypt from "bcryptjs";
-import { prisma } from "./db";
-import { STAFF_ROLES } from "./constants";
-import { SESSION_COOKIE, SESSION_MAX_AGE, signSession, verifySession } from "./session";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
-export async function hashPassword(password: string) {
-  return bcrypt.hash(password, 10);
+export type Papel = "admin" | "atendente" | "tecnico" | "cliente";
+
+export async function carregarPapeis(userId: string): Promise<Papel[]> {
+  const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+  return (data ?? []).map((r) => r.role as Papel);
 }
 
-export async function login(email: string, password: string) {
-  const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
-  if (!user || !user.active) return null;
-  const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) return null;
-  const token = await signSession({
-    userId: user.id,
-    role: user.role,
-    name: user.name,
-    customerId: user.customerId,
+export const isEquipe = (p: Papel[]) => p.some((r) => r === "admin" || r === "atendente" || r === "tecnico");
+
+export function useSessao() {
+  return useQuery({
+    queryKey: ["sessao"],
+    queryFn: async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) return { user: null, papeis: [] as Papel[] };
+      return { user: data.user, papeis: await carregarPapeis(data.user.id) };
+    },
+    staleTime: 60_000,
   });
-  (await cookies()).set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: SESSION_MAX_AGE,
-  });
-  return user;
-}
-
-export async function logout() {
-  (await cookies()).delete(SESSION_COOKIE);
-}
-
-export async function getSession() {
-  return verifySession((await cookies()).get(SESSION_COOKIE)?.value);
-}
-
-/** Usuário atual (recarregado do banco para refletir desativações) */
-export async function getCurrentUser() {
-  const session = await getSession();
-  if (!session) return null;
-  const user = await prisma.user.findUnique({ where: { id: session.userId } });
-  if (!user || !user.active) return null;
-  return user;
-}
-
-export async function requireStaff(roles: string[] = STAFF_ROLES) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login?next=/admin");
-  if (!roles.includes(user.role)) redirect(user.role === "CLIENT" ? "/portal" : "/admin");
-  return user;
-}
-
-export async function requireClient() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login?next=/portal");
-  if (user.role !== "CLIENT" || !user.customerId) redirect("/admin");
-  return user as typeof user & { customerId: string };
 }
