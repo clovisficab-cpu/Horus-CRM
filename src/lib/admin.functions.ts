@@ -21,7 +21,7 @@ export const criarPrimeiroAdmin = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { count, error: contagemErro } = await supabaseAdmin.from("user_roles").select("id", { count: "exact", head: true }).eq("role", "admin");
     // Sem conseguir verificar, nunca libera a criação de administrador.
-    if (contagemErro) throw new Error("Não foi possível verificar os administradores. Confira a chave SUPABASE_SERVICE_ROLE_KEY no servidor.");
+    if (contagemErro) throw new Error(`Não foi possível verificar os administradores (${contagemErro.message || contagemErro.code || "erro desconhecido"}). Confira SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no servidor.`);
     if ((count ?? 0) > 0) throw new Error("O sistema já possui um administrador.");
     const { error } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
