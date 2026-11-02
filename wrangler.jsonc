@@ -1,4 +1,4 @@
 {
   // Configuração da Cloudflare. O build (nitro) mescla isto em .output/server/wrangler.json
-  "name": "horus"
+  "name": "horus-crm"
 }
