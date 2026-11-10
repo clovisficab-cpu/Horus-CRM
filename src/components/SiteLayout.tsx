@@ -63,14 +63,16 @@ export function SiteLayout({ children }: { children: ReactNode }) {
           <div>
             <div className="eyebrow mb-4">Contato</div>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li className="flex items-center gap-2"><MessageCircle className="h-4 w-4 text-primary" /> WhatsApp 24h</li>
-              <li className="flex items-center gap-2"><Phone className="h-4 w-4 text-primary" /> (00) 0000-0000</li>
-              <li className="flex items-center gap-2"><Mail className="h-4 w-4 text-primary" /> contato@horus.com.br</li>
+              <li><a href="https://wa.me/5527997837529" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-foreground"><MessageCircle className="h-4 w-4 text-primary" /> WhatsApp 24h</a></li>
+              <li><a href="tel:+5527997837529" className="flex items-center gap-2 hover:text-foreground"><Phone className="h-4 w-4 text-primary" /> (27) 99783-7529</a></li>
+              <li><a href="mailto:contato@horusprotecao.com.br" className="flex items-center gap-2 hover:text-foreground"><Mail className="h-4 w-4 text-primary" /> contato@horusprotecao.com.br</a></li>
             </ul>
           </div>
         </div>
         <div className="border-t border-border py-5 text-center text-xs text-muted-foreground">
           © {new Date().getFullYear()} Horus Videomonitoramento. Todos os direitos reservados.
+          <span className="mx-2">·</span>
+          <Link to="/privacidade" className="hover:text-foreground">Política de Privacidade</Link>
         </div>
       </footer>
     </div>

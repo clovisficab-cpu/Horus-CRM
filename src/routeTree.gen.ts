@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CamerasRouteImport } from './routes/cameras'
 import { Route as ContatoRouteImport } from './routes/contato'
 import { Route as PlanosRouteImport } from './routes/planos'
+import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedPortalRouteImport } from './routes/_authenticated/portal'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
@@ -67,6 +68,11 @@ const ContatoRoute = ContatoRouteImport.update({
 const PlanosRoute = PlanosRouteImport.update({
   id: '/planos',
   path: '/planos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacidadeRoute = PrivacidadeRouteImport.update({
+  id: '/privacidade',
+  path: '/privacidade',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
@@ -216,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/cameras': typeof CamerasRoute
   '/contato': typeof ContatoRoute
   '/planos': typeof PlanosRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/portal': typeof AuthenticatedPortalRouteWithChildren
   '/admin/banners': typeof AuthenticatedAdminBannersRoute
@@ -247,6 +254,7 @@ export interface FileRoutesByTo {
   '/cameras': typeof CamerasRoute
   '/contato': typeof ContatoRoute
   '/planos': typeof PlanosRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/admin/banners': typeof AuthenticatedAdminBannersRoute
   '/admin/cameras': typeof AuthenticatedAdminCamerasRoute
   '/admin/conhecimento': typeof AuthenticatedAdminConhecimentoRoute
@@ -278,6 +286,7 @@ export interface FileRoutesById {
   '/cameras': typeof CamerasRoute
   '/contato': typeof ContatoRoute
   '/planos': typeof PlanosRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/portal': typeof AuthenticatedPortalRouteWithChildren
   '/_authenticated/admin/banners': typeof AuthenticatedAdminBannersRoute
@@ -311,6 +320,7 @@ export interface FileRouteTypes {
     | '/cameras'
     | '/contato'
     | '/planos'
+    | '/privacidade'
     | '/admin'
     | '/portal'
     | '/admin/banners'
@@ -342,6 +352,7 @@ export interface FileRouteTypes {
     | '/cameras'
     | '/contato'
     | '/planos'
+    | '/privacidade'
     | '/admin/banners'
     | '/admin/cameras'
     | '/admin/conhecimento'
@@ -372,6 +383,7 @@ export interface FileRouteTypes {
     | '/cameras'
     | '/contato'
     | '/planos'
+    | '/privacidade'
     | '/_authenticated/admin'
     | '/_authenticated/portal'
     | '/_authenticated/admin/banners'
@@ -405,6 +417,7 @@ export interface RootRouteChildren {
   CamerasRoute: typeof CamerasRoute
   ContatoRoute: typeof ContatoRoute
   PlanosRoute: typeof PlanosRoute
+  PrivacidadeRoute: typeof PrivacidadeRoute
   ApiPublicWhatsappProcessarRoute: typeof ApiPublicWhatsappProcessarRoute
   ApiPublicWhatsappWebhookRoute: typeof ApiPublicWhatsappWebhookRoute
 }
@@ -451,6 +464,13 @@ declare module '@tanstack/react-router' {
       path: '/planos'
       fullPath: '/planos'
       preLoaderRoute: typeof PlanosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacidade': {
+      id: '/privacidade'
+      path: '/privacidade'
+      fullPath: '/privacidade'
+      preLoaderRoute: typeof PrivacidadeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin': {
@@ -702,6 +722,7 @@ const rootRouteChildren: RootRouteChildren = {
   CamerasRoute: CamerasRoute,
   ContatoRoute: ContatoRoute,
   PlanosRoute: PlanosRoute,
+  PrivacidadeRoute: PrivacidadeRoute,
   ApiPublicWhatsappProcessarRoute: ApiPublicWhatsappProcessarRoute,
   ApiPublicWhatsappWebhookRoute: ApiPublicWhatsappWebhookRoute,
 }

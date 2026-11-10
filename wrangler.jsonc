@@ -1,4 +1,11 @@
 {
   // Configuração da Cloudflare. O build (nitro) mescla isto em .output/server/wrangler.json
-  "name": "horus-crm"
+  "name": "horus-crm",
+  // Mantém as variáveis cadastradas no painel da Cloudflare a cada publicação.
+  "keep_vars": true,
+  // Valores públicos (não secretos). Segredos ficam só no painel: Settings → Variables and Secrets.
+  "vars": {
+    "WHATSAPP_PROVIDER": "meta",
+    "WHATSAPP_PHONE_NUMBER_ID": "1369381186265151"
+  }
 }

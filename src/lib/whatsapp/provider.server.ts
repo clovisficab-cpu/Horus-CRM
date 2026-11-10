@@ -11,6 +11,8 @@ export function normalizarMensagemRecebida(payload: unknown): MensagemRecebida[]
   if (!parsed.success) return [];
   return parsed.data.entry.flatMap(e => e.changes.flatMap(c => (c.value.messages ?? []).map(m => mensagemRecebidaSchema.parse({ telefone: telefoneWhatsApp(m.from), nome: c.value.contacts?.find(x => x.wa_id === m.from)?.profile.name ?? '', texto: m.text?.body ?? `[Mensagem ${m.type} recebida; atendimento humano necessário]`, idExterno: m.id }))));
 }
+/** Versão da Graph API da Meta (v27.0, lançada em 04/11/2026). */
+const GRAPH_API = 'https://graph.facebook.com/v27.0';
 export function configuracaoWhatsApp() {
   const provedor = process.env['WHATSAPP_PROVIDER'] || 'meta';
   if (provedor !== 'meta') throw new Error('Provedor WhatsApp ainda não implementado.');
@@ -28,7 +30,7 @@ export function obterProvedor(): WhatsAppProvider {
       if (config.modo === 'simulação') return { status: 'simulada', idExterno: null };
       const phone = process.env['WHATSAPP_PHONE_NUMBER_ID'];
       if (!phone || !/^\d+$/.test(phone)) throw new Error('Identificador do número WhatsApp inválido.');
-      const response = await fetch(`https://graph.facebook.com/v25.0/${phone}/messages`, { method: 'POST', headers: { Authorization: `Bearer ${process.env['WHATSAPP_TOKEN']}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ messaging_product: 'whatsapp', to: destino, type: 'text', text: { body: texto } }) });
+      const response = await fetch(`${GRAPH_API}/${phone}/messages`, { method: 'POST', headers: { Authorization: `Bearer ${process.env['WHATSAPP_TOKEN']}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ messaging_product: 'whatsapp', to: destino, type: 'text', text: { body: texto } }) });
       const body = await response.text();
       if (!response.ok) throw new Error(`WhatsApp (${response.status}): ${body}`);
       const data = z.object({ messages: z.array(z.object({ id: z.string() })).min(1) }).parse(JSON.parse(body));
