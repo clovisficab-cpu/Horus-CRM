@@ -12,9 +12,9 @@ export const dadosWhatsApp = createServerFn({method:'GET'}).middleware([requireS
   const { configuracaoWhatsApp } = await import('./whatsapp/provider.server');
   const [conversas,clientes] = await Promise.all([context.supabase.from('whatsapp_conversas').select('*,clientes(nome)').order('nao_lidas',{ascending:false}).order('ultima_mensagem_em',{ascending:false}),context.supabase.from('clientes').select('id,nome').order('nome')]);
   if(conversas.error || clientes.error) throw new Error(conversas.error?.message || clientes.error?.message);
+  // Sem a migração 0008 a tabela não existe: o painel abre sem os controles da Íris.
   const config=await context.supabase.from('whatsapp_config').select('*').eq('id',true).maybeSingle();
-  if(config.error) throw config.error;
-  return {conversas:conversas.data ?? [],clientes:clientes.data ?? [],integracao:configuracaoWhatsApp(),config:config.data};
+  return {conversas:conversas.data ?? [],clientes:clientes.data ?? [],integracao:configuracaoWhatsApp(),config:config.error?null:config.data,migracaoPendente:Boolean(config.error)};
 });
 export const simularWhatsApp = createServerFn({method:'POST'}).middleware([requireSupabaseAuth]).inputValidator((d:unknown)=>z.object({telefone:z.string().min(10).max(30),nome:z.string().max(200),texto:z.string().trim().min(1).max(4000)}).parse(d)).handler(async ({data,context})=>{
   await equipe(context);
@@ -56,7 +56,7 @@ export const agirWhatsApp=createServerFn({method:'POST'}).middleware([requireSup
     if(data.acao==='assumir'||data.acao==='bot') {
       // Assumir: a Íris fica em silêncio. Devolver: o próximo contato abre um atendimento novo da Íris.
       const a=await db.from('whatsapp_atendimentos').update(data.acao==='assumir'?{atendido_por:'humano',status:'transferido'}:{status:'encerrado',encerrado_em:new Date().toISOString()}).eq('conversa_id',data.id).in('status',data.acao==='assumir'?['aberto']:['aberto','transferido']);
-      if(a.error) throw a.error;
+      if(a.error && !['PGRST205','42P01'].includes(a.error.code)) throw a.error; // sem a migração 0008, segue só com o modo da conversa
     }
     if(data.acao==='vincular' && data.clienteId) {const c=await context.supabase.from('clientes').select('id').eq('id',data.clienteId).single();if(c.error) throw c.error;}
     const r=await context.supabase.from('whatsapp_conversas').update(data.acao==='vincular'?{cliente_id:data.clienteId ?? null}:data.acao==='lida'?{nao_lidas:0}:{modo:data.acao==='bot'?'bot':'humano'}).eq('id',data.id);

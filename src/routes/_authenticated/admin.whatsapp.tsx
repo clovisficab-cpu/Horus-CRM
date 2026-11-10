@@ -49,6 +49,7 @@ function WhatsApp(){
       {data.config&&<Button variant="outline" onClick={()=>setCfgAberta(true)}><Settings/>Configurações</Button>}
       <Button variant="outline" onClick={()=>setSim(true)}><FlaskConical/>Simular mensagem recebida</Button>
     </>}/>
+    {data.migracaoPendente&&<div className="mb-4 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">A Íris ainda não está ativa: falta rodar a migração <strong>0008_iris.sql</strong> no Supabase (SQL Editor). Até lá, as mensagens ficam aqui para a equipe responder.</div>}
     {!irisAtiva&&<div className="mb-4 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">A Íris está <strong>pausada</strong>: as mensagens chegam aqui, mas ninguém responde automaticamente.</div>}
     {urgentes>0&&<div className="mb-4 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"><Siren className="h-4 w-4"/>{urgentes===1?'1 conversa URGENTE':`${urgentes} conversas URGENTES`} aguardando a equipe.</div>}
     <div className="mb-4 border-b border-border pb-4 text-sm"><span className="text-muted-foreground">Webhook Meta: </span><span className="break-all select-all">{webhook}</span></div>

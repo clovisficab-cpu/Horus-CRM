@@ -14,6 +14,9 @@ const INATIVIDADE_MS = 10 * 60_000;
 const INTERROMPIDO_MS = 2 * 60_000;
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const erro = (e: { message?: string } | null | undefined) => { if (e) throw new Error(e.message ?? 'Erro no banco'); };
+/** Banco ainda sem a migração 0008 (função, tabela ou coluna inexistente): a Íris fica inativa, sem quebrar o resto. */
+const semMigracao = (e: { code?: string } | null | undefined) => Boolean(e?.code && ['PGRST202', 'PGRST204', 'PGRST205', '42883', '42703', '42P01'].includes(e.code));
+const AVISO_MIGRACAO = '[iris] migração 0008_iris.sql ainda não aplicada no Supabase: Íris inativa; mensagens ficam para a equipe.';
 
 async function config() {
   const r = await db.from('whatsapp_config').select('*').eq('id', true).single();
@@ -93,6 +96,7 @@ function repositorio(conversaId: string, atendimentoId: string, plantao: string 
 /** Responde a uma conversa: reivindica o lote de mensagens, chama a Íris e envia a resposta em partes. */
 export async function atenderConversa(conversaId: string, opcoes: { esperaMs?: number } = {}) {
   const lote = await db.rpc('whatsapp_reivindicar_lote', { _conversa: conversaId, _espera_ms: opcoes.esperaMs ?? ESPERA_LOTE_MS });
+  if (semMigracao(lote.error)) { console.error(AVISO_MIGRACAO); return; }
   erro(lote.error);
   const jobs = (lote.data ?? []) as string[];
   if (!jobs.length) return;
@@ -182,6 +186,7 @@ export async function aoReceberMensagem(conversaId: string, idExterno: string) {
 /** Rede de segurança do agendador (a cada minuto): lotes interrompidos, mensagens sem resposta e envios pendentes. */
 export async function processarPendentes() {
   const presos = await db.from('whatsapp_bot_jobs').select('id, whatsapp_mensagens!mensagem_id(conversa_id)').eq('status', 'processando').lt('iniciado_em', new Date(Date.now() - INTERROMPIDO_MS).toISOString()).limit(20);
+  if (semMigracao(presos.error)) { console.error(AVISO_MIGRACAO); return; }
   erro(presos.error);
   const porConversa = new Map<string, string[]>();
   for (const j of presos.data ?? []) { const c = j.whatsapp_mensagens?.conversa_id; if (c) porConversa.set(c, [...(porConversa.get(c) ?? []), j.id]); }
