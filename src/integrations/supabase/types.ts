@@ -396,6 +396,8 @@ export type Database = {
           uf: string | null
           updated_at: string
           whatsapp: string | null
+          data_nascimento: string | null
+          consentimento_marketing: boolean
         }
         Insert: {
           cidade?: string | null
@@ -412,6 +414,8 @@ export type Database = {
           uf?: string | null
           updated_at?: string
           whatsapp?: string | null
+          data_nascimento?: string | null
+          consentimento_marketing?: boolean
         }
         Update: {
           cidade?: string | null
@@ -428,6 +432,8 @@ export type Database = {
           uf?: string | null
           updated_at?: string
           whatsapp?: string | null
+          data_nascimento?: string | null
+          consentimento_marketing?: boolean
         }
         Relationships: []
       }
@@ -530,6 +536,12 @@ export type Database = {
           },
         ]
       }
+      lead_convites: {
+        Row: { codigo: string; conversa_id: string | null; created_at: string; expira_em: string; id: string; lead_id: string; telefone: string | null; usado_em: string | null }
+        Insert: { codigo: string; conversa_id?: string | null; created_at?: string; expira_em?: string; id?: string; lead_id: string; telefone?: string | null; usado_em?: string | null }
+        Update: { codigo?: string; conversa_id?: string | null; created_at?: string; expira_em?: string; id?: string; lead_id?: string; telefone?: string | null; usado_em?: string | null }
+        Relationships: []
+      }
       leads: {
         Row: {
           cliente_id: string | null
@@ -545,6 +557,18 @@ export type Database = {
           responsavel: string | null
           telefone: string | null
           valor_estimado: number | null
+          tipo: string | null
+          documento: string | null
+          data_nascimento: string | null
+          endereco: string | null
+          cidade: string | null
+          uf: string | null
+          cameras: number | null
+          periodo_visita: string | null
+          consentimento_privacidade_em: string | null
+          consentimento_marketing: boolean
+          pre_cadastro_em: string | null
+          whatsapp_conversa_id: string | null
         }
         Insert: {
           cliente_id?: string | null
@@ -560,6 +584,18 @@ export type Database = {
           responsavel?: string | null
           telefone?: string | null
           valor_estimado?: number | null
+          tipo?: string | null
+          documento?: string | null
+          data_nascimento?: string | null
+          endereco?: string | null
+          cidade?: string | null
+          uf?: string | null
+          cameras?: number | null
+          periodo_visita?: string | null
+          consentimento_privacidade_em?: string | null
+          consentimento_marketing?: boolean
+          pre_cadastro_em?: string | null
+          whatsapp_conversa_id?: string | null
         }
         Update: {
           cliente_id?: string | null
@@ -575,6 +611,18 @@ export type Database = {
           responsavel?: string | null
           telefone?: string | null
           valor_estimado?: number | null
+          tipo?: string | null
+          documento?: string | null
+          data_nascimento?: string | null
+          endereco?: string | null
+          cidade?: string | null
+          uf?: string | null
+          cameras?: number | null
+          periodo_visita?: string | null
+          consentimento_privacidade_em?: string | null
+          consentimento_marketing?: boolean
+          pre_cadastro_em?: string | null
+          whatsapp_conversa_id?: string | null
         }
         Relationships: [
           {
@@ -1080,6 +1128,12 @@ export type Database = {
           _prioridade: string
           _texto: string
         }
+        Returns: string
+      }
+      pre_cadastro_convite: { Args: { _codigo: string }; Returns: Json }
+      pre_cadastro_enviar: { Args: { _codigo: string; _dados: Json }; Returns: string | null }
+      whatsapp_convite_cadastro: {
+        Args: { _atendimento: string | null; _codigo: string; _conversa: string; _interesse: string; _nome: string; _resumo: string }
         Returns: string
       }
       whatsapp_abrir_chamado: {

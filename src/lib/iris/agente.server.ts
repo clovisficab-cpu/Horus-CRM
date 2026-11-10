@@ -16,6 +16,8 @@ export interface RepositorioIris {
   visita(clienteId: string, ordemIndice: number | null, inicio: string | null, motivo: string): Promise<{ agendada_em?: string; tecnico?: string; status?: string }>;
   salvarAtendimento(patch: Partial<EstadoAtendimento>): Promise<void>;
   marcarUrgente(resumo: string): Promise<void>;
+  /** Cria/reaproveita o lead da conversa e devolve o link de pré-cadastro (válido por 7 dias). */
+  conviteCadastro(dados: { nome: string; interesse: string; resumo: string }): Promise<string>;
 }
 
 export interface EstadoAtendimento {
@@ -149,6 +151,14 @@ export async function executarTurno(e: EntradaTurno, repo: RepositorioIris, mode
         await repo.salvarAtendimento({ falhas_identificacao: at.falhas_identificacao });
         return { confere: false, tentativas_restantes: Math.max(0, 2 - at.falhas_identificacao), observacao: at.falhas_identificacao >= 2 ? 'Falhou duas vezes: transfira para um atendente.' : 'Peça para conferir e tentar de novo, sem revelar o dado correto.' };
       },
+    });
+  }
+
+  if (!e.clienteDoTelefone) {
+    tools['enviar_link_cadastro'] = tool({
+      description: 'Para quem ainda não é cliente e quer contratar ou se cadastrar: registra o interesse no Funil de vendas e devolve o link do formulário de pré-cadastro. Envie o link ao cliente.',
+      inputSchema: z.object({ nome: z.string().max(120).describe('Nome que o cliente informou (ou vazio).'), interesse: z.string().max(200).describe('Plano ou necessidade, ex.: "Plano Empresarial, 8 câmeras na loja".'), resumo: z.string().max(1000).describe('Resumo da conversa para a equipe comercial.') }),
+      execute: async (d) => { usar('enviar_link_cadastro'); try { return { link: await repo.conviteCadastro(d), validade: '7 dias' }; } catch (err) { return { erro: err instanceof Error ? err.message : 'Não foi possível gerar o link.' }; } },
     });
   }
 

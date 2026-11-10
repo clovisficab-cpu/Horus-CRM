@@ -80,6 +80,14 @@ function repositorio(conversaId: string, atendimentoId: string, plantao: string 
       const r = await db.from('whatsapp_atendimentos').update(acao_pendente === undefined ? resto : { ...resto, acao_pendente: acao_pendente as unknown as Json }).eq('id', atendimentoId);
       erro(r.error);
     },
+    async conviteCadastro(d) {
+      const bytes = crypto.getRandomValues(new Uint8Array(12));
+      const alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+      const codigo = Array.from(bytes, (b) => alfabeto[b % alfabeto.length]).join('');
+      const r = await db.rpc('whatsapp_convite_cadastro', { _conversa: conversaId, _atendimento: atendimentoId, _codigo: codigo, _nome: d.nome, _interesse: d.interesse, _resumo: d.resumo });
+      erro(r.error);
+      return `${process.env['SITE_URL'] || 'https://horusprotecao.com.br'}/cadastro/${r.data}`;
+    },
     async marcarUrgente(resumo) {
       const r = await db.from('whatsapp_conversas').update({ urgente: true }).eq('id', conversaId);
       erro(r.error);

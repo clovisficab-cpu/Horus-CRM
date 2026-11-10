@@ -53,6 +53,7 @@ function P() {
                   <div key={l.id} className="cursor-pointer rounded-lg border border-border bg-card p-3 hover:border-primary/50" onClick={() => setEdit(l)}>
                     <div className="font-medium">{l.nome}</div>
                     {l.empresa && <div className="text-xs text-muted-foreground">{l.empresa}</div>}
+                    {l.pre_cadastro_em && <div className="mt-1"><Pill tone="success">Pré-cadastro completo</Pill></div>}
                     <div className="mt-2 flex items-center justify-between text-xs">
                       <Pill tone="gold">{ORIGENS[l.origem] ?? l.origem}</Pill>
                       <span>{l.valor_estimado ? brl(l.valor_estimado) : "—"}</span>
@@ -125,8 +126,10 @@ function LeadFicha({ lead: l, onSaved }: { lead?: Lead | undefined; onSaved: () 
     if (!l) return;
     setLoading(true);
     const { data: cli, error } = await supabase.from("clientes").insert({
-      nome: f.empresa || f.nome, tipo: f.empresa ? "PJ" : "PF", email: f.email || null, telefone: f.telefone || null,
+      nome: f.empresa || f.nome, tipo: l.tipo ?? (f.empresa ? "PJ" : "PF"), email: f.email || null, telefone: f.telefone || null,
       whatsapp: f.telefone || null, observacoes: [f.interesse, f.observacoes].filter(Boolean).join("\n") || null,
+      // Dados do pré-cadastro (formulário enviado pela Íris), só quando houver (as colunas vêm da migração 0009).
+      ...(l.pre_cadastro_em ? { documento: l.documento ?? null, endereco: l.endereco ?? null, cidade: l.cidade ?? null, uf: l.uf ?? null, data_nascimento: l.data_nascimento ?? null, consentimento_marketing: l.consentimento_marketing } : {}),
     }).select("id").single();
     if (error || !cli) { setLoading(false); return void toast.error(error?.message ?? "Falha ao criar cliente"); }
     await supabase.from("leads").update({ etapa: "ganho", cliente_id: cli.id }).eq("id", l.id);
@@ -139,6 +142,7 @@ function LeadFicha({ lead: l, onSaved }: { lead?: Lead | undefined; onSaved: () 
 
   return (
     <div className="space-y-6">
+      {l?.pre_cadastro_em && <PreCadastro l={l} />}
       <form onSubmit={salvar} className="grid gap-4 sm:grid-cols-2">
         <Field label="Nome *"><Input value={f.nome} onChange={set("nome")} required /></Field>
         <Field label="Empresa"><Input value={f.empresa} onChange={set("empresa")} /></Field>
@@ -180,6 +184,23 @@ function LeadFicha({ lead: l, onSaved }: { lead?: Lead | undefined; onSaved: () 
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+const PERIODO: Record<string, string> = { manha: "Manhã", tarde: "Tarde", indiferente: "Tanto faz" };
+function PreCadastro({ l }: { l: Lead }) {
+  const linhas: [string, string | null | undefined][] = [
+    [l.tipo === "PJ" ? "CNPJ" : "CPF", l.documento], ["Nascimento", l.data_nascimento ? l.data_nascimento.split("-").reverse().join("/") : null],
+    ["E-mail", l.email], ["Endereço do imóvel", [l.endereco, l.cidade, l.uf].filter(Boolean).join(" — ")],
+    ["Câmeras", l.cameras?.toString()], ["Visita", l.periodo_visita ? PERIODO[l.periodo_visita] ?? l.periodo_visita : null],
+    ["Marketing/aniversário", l.consentimento_marketing ? "Autorizado" : "Não autorizado"],
+  ];
+  return (
+    <div className="rounded-lg border border-success/40 bg-success/5 p-4 text-sm">
+      <p className="mb-2 font-semibold text-success">Pré-cadastro enviado em {dataHoraBR(l.pre_cadastro_em)}</p>
+      <dl className="grid gap-x-4 gap-y-1 sm:grid-cols-2">{linhas.filter(([, v]) => v).map(([k, v]) => <div key={k}><dt className="inline text-muted-foreground">{k}: </dt><dd className="inline">{v}</dd></div>)}</dl>
+      <p className="mt-2 text-xs text-muted-foreground">Confira os dados e use "Converter em cliente": eles vão para o cadastro do cliente.</p>
     </div>
   );
 }

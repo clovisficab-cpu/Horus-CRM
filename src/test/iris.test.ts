@@ -66,7 +66,7 @@ function repoFalso() {
   const repo: RepositorioIris = {
     cliente: async () => ({ nome: 'Clovis Ficab', documento: '12345678909' }), cameras: async () => [], resumoCliente: async () => ({ chamados: [], visitas: [] }),
     debito: async () => [], horariosLivres: async () => ['2026-11-11T11:00:00Z'], abrirChamado: async () => ({ protocolo: 1 }), visita,
-    salvarAtendimento: async () => undefined, marcarUrgente: vi.fn(async () => undefined),
+    salvarAtendimento: async () => undefined, marcarUrgente: vi.fn(async () => undefined), conviteCadastro: vi.fn(async () => 'https://horusprotecao.com.br/cadastro/ABCDEFGHJK'),
   };
   return { repo, visita };
 }
@@ -121,6 +121,7 @@ describe('Íris: ações só com confirmação e só para o cliente identificado
     const nomes = (m.doGenerateCalls[0]?.tools ?? []).map((t) => t.name);
     expect(nomes).not.toContain('consultar_debito');
     expect(nomes).not.toContain('verificar_identidade');
+    expect(nomes).toContain('enviar_link_cadastro');
   });
   it('cadastrado mas não identificado: a ferramenta da conta recusa até a identidade conferir', async () => {
     const { repo } = repoFalso();

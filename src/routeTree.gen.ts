@@ -18,6 +18,7 @@ import { Route as PlanosRouteImport } from './routes/planos'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedPortalRouteImport } from './routes/_authenticated/portal'
+import { Route as CadastroCodigoRouteImport } from './routes/cadastro.$codigo'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedAdminBannersRouteImport } from './routes/_authenticated/admin.banners'
 import { Route as AuthenticatedAdminCamerasRouteImport } from './routes/_authenticated/admin.cameras'
@@ -84,6 +85,11 @@ const AuthenticatedPortalRoute = AuthenticatedPortalRouteImport.update({
   id: '/portal',
   path: '/portal',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const CadastroCodigoRoute = CadastroCodigoRouteImport.update({
+  id: '/cadastro/$codigo',
+  path: '/cadastro/$codigo',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
@@ -225,6 +231,7 @@ export interface FileRoutesByFullPath {
   '/privacidade': typeof PrivacidadeRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/portal': typeof AuthenticatedPortalRouteWithChildren
+  '/cadastro/$codigo': typeof CadastroCodigoRoute
   '/admin/banners': typeof AuthenticatedAdminBannersRoute
   '/admin/cameras': typeof AuthenticatedAdminCamerasRoute
   '/admin/conhecimento': typeof AuthenticatedAdminConhecimentoRoute
@@ -255,6 +262,7 @@ export interface FileRoutesByTo {
   '/contato': typeof ContatoRoute
   '/planos': typeof PlanosRoute
   '/privacidade': typeof PrivacidadeRoute
+  '/cadastro/$codigo': typeof CadastroCodigoRoute
   '/admin/banners': typeof AuthenticatedAdminBannersRoute
   '/admin/cameras': typeof AuthenticatedAdminCamerasRoute
   '/admin/conhecimento': typeof AuthenticatedAdminConhecimentoRoute
@@ -289,6 +297,7 @@ export interface FileRoutesById {
   '/privacidade': typeof PrivacidadeRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/portal': typeof AuthenticatedPortalRouteWithChildren
+  '/cadastro/$codigo': typeof CadastroCodigoRoute
   '/_authenticated/admin/banners': typeof AuthenticatedAdminBannersRoute
   '/_authenticated/admin/cameras': typeof AuthenticatedAdminCamerasRoute
   '/_authenticated/admin/conhecimento': typeof AuthenticatedAdminConhecimentoRoute
@@ -323,6 +332,7 @@ export interface FileRouteTypes {
     | '/privacidade'
     | '/admin'
     | '/portal'
+    | '/cadastro/$codigo'
     | '/admin/banners'
     | '/admin/cameras'
     | '/admin/conhecimento'
@@ -353,6 +363,7 @@ export interface FileRouteTypes {
     | '/contato'
     | '/planos'
     | '/privacidade'
+    | '/cadastro/$codigo'
     | '/admin/banners'
     | '/admin/cameras'
     | '/admin/conhecimento'
@@ -386,6 +397,7 @@ export interface FileRouteTypes {
     | '/privacidade'
     | '/_authenticated/admin'
     | '/_authenticated/portal'
+    | '/cadastro/$codigo'
     | '/_authenticated/admin/banners'
     | '/_authenticated/admin/cameras'
     | '/_authenticated/admin/conhecimento'
@@ -418,6 +430,7 @@ export interface RootRouteChildren {
   ContatoRoute: typeof ContatoRoute
   PlanosRoute: typeof PlanosRoute
   PrivacidadeRoute: typeof PrivacidadeRoute
+  CadastroCodigoRoute: typeof CadastroCodigoRoute
   ApiPublicWhatsappProcessarRoute: typeof ApiPublicWhatsappProcessarRoute
   ApiPublicWhatsappWebhookRoute: typeof ApiPublicWhatsappWebhookRoute
 }
@@ -486,6 +499,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/portal'
       preLoaderRoute: typeof AuthenticatedPortalRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/cadastro/$codigo': {
+      id: '/cadastro/$codigo'
+      path: '/cadastro/$codigo'
+      fullPath: '/cadastro/$codigo'
+      preLoaderRoute: typeof CadastroCodigoRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin/': {
       id: '/_authenticated/admin/'
@@ -723,6 +743,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContatoRoute: ContatoRoute,
   PlanosRoute: PlanosRoute,
   PrivacidadeRoute: PrivacidadeRoute,
+  CadastroCodigoRoute: CadastroCodigoRoute,
   ApiPublicWhatsappProcessarRoute: ApiPublicWhatsappProcessarRoute,
   ApiPublicWhatsappWebhookRoute: ApiPublicWhatsappWebhookRoute,
 }
