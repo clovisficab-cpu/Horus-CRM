@@ -178,9 +178,47 @@ export async function atenderConversa(conversaId: string, opcoes: { esperaMs?: n
 
 /** Chamado logo depois de gravar a mensagem (em segundo plano): "lida + digitando…", espera o agrupamento e responde. */
 export async function aoReceberMensagem(conversaId: string, idExterno: string) {
-  await obterProvedor().marcarLidaDigitando(idExterno).catch((e) => console.warn('[iris] digitando falhou', e));
+  const conv = await db.from('whatsapp_conversas').select('modo').eq('id', conversaId).maybeSingle();
+  // "Digitando…" só quando a Íris vai responder; com atendente humano, nada de indicador.
+  if (conv.data?.modo === 'bot') await obterProvedor().marcarLidaDigitando(idExterno).catch((e) => console.warn('[iris] digitando falhou', e));
   await dormir(ESPERA_LOTE_MS + 300);
   await atenderConversa(conversaId);
+  await avisarAguardandoEquipe(conversaId);
+}
+
+/** Intervalo mínimo entre avisos "sua mensagem ficou registrada" numa conversa transferida. */
+const INTERVALO_AVISO_MS = 10 * 60_000;
+
+/**
+ * Conversa transferida, mas nenhum atendente respondeu ainda (ex.: fora do horário): cada nova mensagem do
+ * cliente recebe um aviso curto, no máximo um a cada 10 min. A Íris não responde ao conteúdo; quando um
+ * atendente escreve (ou clica em "Assumir"), ela fica em silêncio total.
+ */
+export async function avisarAguardandoEquipe(conversaId: string) {
+  const [cfgR, convR] = await Promise.all([
+    db.from('whatsapp_config').select('iris_ativa,horario').eq('id', true).maybeSingle(),
+    db.from('whatsapp_conversas').select('modo,transferida_em').eq('id', conversaId).single(),
+  ]);
+  const c = convR.data;
+  if (cfgR.error || convR.error || !cfgR.data?.iris_ativa || !c || c.modo !== 'humano' || !c.transferida_em) return;
+  const depois = await db.from('whatsapp_mensagens').select('remetente,direcao,created_at').eq('conversa_id', conversaId).gt('created_at', c.transferida_em).order('created_at', { ascending: false }).limit(50);
+  if (depois.error) return;
+  const msgs = depois.data ?? [];
+  if (msgs.some((m) => m.remetente === 'atendente')) return; // um atendente já está na conversa
+  const ultimoCliente = msgs.find((m) => m.direcao === 'entrada');
+  if (!ultimoCliente) return;
+  // O aviso da transferência é gravado no mesmo instante de transferida_em; depois dele, mensagens da Íris são avisos.
+  const ultimoAviso = msgs.find((m) => m.remetente === 'ia');
+  if (ultimoAviso && Date.now() - Date.parse(ultimoAviso.created_at) < INTERVALO_AVISO_MS) return;
+  const horario = cfgR.data.horario as unknown as Horario;
+  const texto = dentroDoHorario(horario)
+    ? 'Recebi sua mensagem e ela já está com a equipe Horus. Em breve alguém continua o atendimento por aqui. 🙂'
+    : `Recebi sua mensagem e ela já ficou registrada para a equipe Horus, que volta ${proximaAbertura(horario) ?? 'no próximo dia útil'}. 🙂`;
+  // Chave única por janela de 10 min: duas mensagens simultâneas não geram dois avisos.
+  const chave = `aviso-equipe-${conversaId}-${Math.floor(Date.now() / INTERVALO_AVISO_MS)}`;
+  const r = await db.from('whatsapp_mensagens').insert({ conversa_id: conversaId, direcao: 'saida', remetente: 'ia', texto, status: 'pendente', id_externo: chave }).select('id').single();
+  if (r.error) return; // já avisado nesta janela
+  await enviarPendente(r.data.id);
 }
 
 /** Rede de segurança do agendador (a cada minuto): lotes interrompidos, mensagens sem resposta e envios pendentes. */

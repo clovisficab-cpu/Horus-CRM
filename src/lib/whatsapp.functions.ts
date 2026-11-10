@@ -29,8 +29,9 @@ export const simularWhatsApp = createServerFn({method:'POST'}).middleware([requi
   if(r.error) throw r.error;
   const mensagem=await db.from('whatsapp_mensagens').select('conversa_id').eq('id',r.data).single();
   if(mensagem.error) throw mensagem.error;
-  const {atenderConversa}=await import('./iris/fluxo.server');
+  const {atenderConversa,avisarAguardandoEquipe}=await import('./iris/fluxo.server');
   await atenderConversa(mensagem.data.conversa_id,{esperaMs:0});
+  await avisarAguardandoEquipe(mensagem.data.conversa_id);
   return {conversaId:mensagem.data.conversa_id};
 });
 export const agirWhatsApp=createServerFn({method:'POST'}).middleware([requireSupabaseAuth]).inputValidator((d:unknown)=>z.object({id:z.string().uuid(),acao:z.enum(['assumir','bot','lida','vincular','lead','responder','resolver_urgencia']),texto:z.string().trim().max(4000).optional(),clienteId:z.string().uuid().nullable().optional()}).parse(d)).handler(async ({data,context})=>{
@@ -57,6 +58,8 @@ export const agirWhatsApp=createServerFn({method:'POST'}).middleware([requireSup
       // Assumir: a Íris fica em silêncio. Devolver: o próximo contato abre um atendimento novo da Íris.
       const a=await db.from('whatsapp_atendimentos').update(data.acao==='assumir'?{atendido_por:'humano',status:'transferido'}:{status:'encerrado',encerrado_em:new Date().toISOString()}).eq('conversa_id',data.id).in('status',data.acao==='assumir'?['aberto']:['aberto','transferido']);
       if(a.error && !['PGRST205','42P01'].includes(a.error.code)) throw a.error; // sem a migração 0008, segue só com o modo da conversa
+      // Assumir: um atendente está presente, então a Íris não manda nem o aviso de "mensagem registrada".
+      if(data.acao==='assumir'){const t=await db.from('whatsapp_conversas').update({transferida_em:null}).eq('id',data.id);if(t.error && !['PGRST204','42703'].includes(t.error.code)) throw t.error;}
     }
     if(data.acao==='vincular' && data.clienteId) {const c=await context.supabase.from('clientes').select('id').eq('id',data.clienteId).single();if(c.error) throw c.error;}
     const r=await context.supabase.from('whatsapp_conversas').update(data.acao==='vincular'?{cliente_id:data.clienteId ?? null}:data.acao==='lida'?{nao_lidas:0}:{modo:data.acao==='bot'?'bot':'humano'}).eq('id',data.id);
