@@ -703,6 +703,99 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_acoes: {
+        Row: {
+          acao: string
+          antes: Json | null
+          atendimento_id: string | null
+          cliente_id: string | null
+          conversa_id: string
+          created_at: string
+          depois: Json | null
+          descricao: string
+          id: string
+        }
+        Insert: {
+          acao: string
+          antes?: Json | null
+          atendimento_id?: string | null
+          cliente_id?: string | null
+          conversa_id: string
+          created_at?: string
+          depois?: Json | null
+          descricao: string
+          id?: string
+        }
+        Update: {
+          acao?: string
+          antes?: Json | null
+          atendimento_id?: string | null
+          cliente_id?: string | null
+          conversa_id?: string
+          created_at?: string
+          depois?: Json | null
+          descricao?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      whatsapp_atendimentos: {
+        Row: {
+          acao_pendente: Json | null
+          acao_pendente_em: string | null
+          assunto: string | null
+          atendido_por: string
+          cliente_id: string | null
+          conversa_id: string
+          encerrado_em: string | null
+          estado: string | null
+          falhas_identificacao: number
+          id: string
+          identificado_em: string | null
+          iniciado_em: string
+          resumo: string | null
+          status: string
+          tentativas_problema: number
+          ultima_interacao_em: string
+        }
+        Insert: {
+          acao_pendente?: Json | null
+          acao_pendente_em?: string | null
+          assunto?: string | null
+          atendido_por?: string
+          cliente_id?: string | null
+          conversa_id: string
+          encerrado_em?: string | null
+          estado?: string | null
+          falhas_identificacao?: number
+          id?: string
+          identificado_em?: string | null
+          iniciado_em?: string
+          resumo?: string | null
+          status?: string
+          tentativas_problema?: number
+          ultima_interacao_em?: string
+        }
+        Update: {
+          acao_pendente?: Json | null
+          acao_pendente_em?: string | null
+          assunto?: string | null
+          atendido_por?: string
+          cliente_id?: string | null
+          conversa_id?: string
+          encerrado_em?: string | null
+          estado?: string | null
+          falhas_identificacao?: number
+          id?: string
+          identificado_em?: string | null
+          iniciado_em?: string
+          resumo?: string | null
+          status?: string
+          tentativas_problema?: number
+          ultima_interacao_em?: string
+        }
+        Relationships: []
+      }
       whatsapp_bot_jobs: {
         Row: {
           created_at: string
@@ -711,6 +804,7 @@ export type Database = {
           mensagem_id: string
           resposta_id: string | null
           status: string
+          iniciado_em: string | null
         }
         Insert: {
           created_at?: string
@@ -719,6 +813,7 @@ export type Database = {
           mensagem_id: string
           resposta_id?: string | null
           status?: string
+          iniciado_em?: string | null
         }
         Update: {
           created_at?: string
@@ -727,6 +822,7 @@ export type Database = {
           mensagem_id?: string
           resposta_id?: string | null
           status?: string
+          iniciado_em?: string | null
         }
         Relationships: [
           {
@@ -745,6 +841,42 @@ export type Database = {
           },
         ]
       }
+      whatsapp_config: {
+        Row: {
+          endereco_aprovacao_humana: boolean
+          horario: Json
+          id: boolean
+          iris_ativa: boolean
+          limite_mensagens_minuto: number
+          plantao_telefone: string | null
+          updated_at: string
+          visita_duracao_min: number
+          visita_horarios: string[]
+        }
+        Insert: {
+          endereco_aprovacao_humana?: boolean
+          horario?: Json
+          id?: boolean
+          iris_ativa?: boolean
+          limite_mensagens_minuto?: number
+          plantao_telefone?: string | null
+          updated_at?: string
+          visita_duracao_min?: number
+          visita_horarios?: string[]
+        }
+        Update: {
+          endereco_aprovacao_humana?: boolean
+          horario?: Json
+          id?: boolean
+          iris_ativa?: boolean
+          limite_mensagens_minuto?: number
+          plantao_telefone?: string | null
+          updated_at?: string
+          visita_duracao_min?: number
+          visita_horarios?: string[]
+        }
+        Relationships: []
+      }
       whatsapp_conversas: {
         Row: {
           cliente_id: string | null
@@ -757,6 +889,10 @@ export type Database = {
           telefone: string
           ultima_mensagem: string | null
           ultima_mensagem_em: string | null
+          urgente: boolean
+          resumo_transferencia: string | null
+          transferida_em: string | null
+          opt_out_avisos: boolean
         }
         Insert: {
           cliente_id?: string | null
@@ -769,6 +905,10 @@ export type Database = {
           telefone: string
           ultima_mensagem?: string | null
           ultima_mensagem_em?: string | null
+          urgente?: boolean
+          resumo_transferencia?: string | null
+          transferida_em?: string | null
+          opt_out_avisos?: boolean
         }
         Update: {
           cliente_id?: string | null
@@ -781,6 +921,10 @@ export type Database = {
           telefone?: string
           ultima_mensagem?: string | null
           ultima_mensagem_em?: string | null
+          urgente?: boolean
+          resumo_transferencia?: string | null
+          transferida_em?: string | null
+          opt_out_avisos?: boolean
         }
         Relationships: [
           {
@@ -832,6 +976,8 @@ export type Database = {
           remetente: string
           status: string
           texto: string
+          tempo_resposta_ms: number | null
+          tipo: string
         }
         Insert: {
           chamado_mensagem_id?: string | null
@@ -844,6 +990,8 @@ export type Database = {
           remetente: string
           status?: string
           texto: string
+          tempo_resposta_ms?: number | null
+          tipo?: string
         }
         Update: {
           chamado_mensagem_id?: string | null
@@ -856,6 +1004,8 @@ export type Database = {
           remetente?: string
           status?: string
           texto?: string
+          tempo_resposta_ms?: number | null
+          tipo?: string
         }
         Relationships: [
           {
@@ -931,6 +1081,23 @@ export type Database = {
           _texto: string
         }
         Returns: string
+      }
+      whatsapp_abrir_chamado: {
+        Args: { _assunto: string; _atendimento: string | null; _categoria: string; _cliente: string; _conversa: string; _descricao: string; _prioridade: string }
+        Returns: Json
+      }
+      whatsapp_horario_valido: { Args: { _inicio: string }; Returns: boolean }
+      whatsapp_horarios_visita: { Args: { _dias?: number; _limite?: number }; Returns: string[] }
+      whatsapp_registrar_resposta: {
+        Args: { _aviso: string | null; _conversa: string; _jobs: string[]; _resumo: string | null; _tempo_ms: number | null; _textos: string[]; _transferir: boolean }
+        Returns: string[]
+      }
+      whatsapp_reivindicar_lote: { Args: { _conversa: string; _espera_ms: number }; Returns: string[] }
+      whatsapp_resumo_cliente: { Args: { _cliente: string }; Returns: Json }
+      whatsapp_tecnico_livre: { Args: { _fim: string; _ignorar?: string; _inicio: string; _preferido?: string }; Returns: string }
+      whatsapp_visita: {
+        Args: { _atendimento: string | null; _cliente: string; _conversa: string; _inicio: string | null; _motivo: string; _ordem: string | null }
+        Returns: Json
       }
       whatsapp_receber: {
         Args: {

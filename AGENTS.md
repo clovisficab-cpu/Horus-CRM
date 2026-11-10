@@ -14,3 +14,6 @@ Projeto migrado da Lovable para desenvolvimento direto (Claude Code). Banco: Sup
 - Route all WhatsApp sends and inbound normalization through the provider module; Meta-specific credentials, Graph calls and signature checks stay server-only so a future adapter cannot bypass the neutral boundary.
 - Persist inbound messages and bot jobs before acknowledgement; transactional action application and ticket-reply outbox prevent duplicate business actions, while uncertain sends and interrupted AI claims require review rather than automatic replay.
 - Treat phone matching as routing, not authentication; WhatsApp AI may use linked client data internally but must not disclose private camera, billing or ticket details to an unverified sender.
+- Íris (WhatsApp com IA, `src/lib/iris/`): o webhook grava e responde 200 na hora; o atendimento roda em `waitUntil` (lote de 3 s, "digitando…") e o agendador cobre lotes interrompidos. Ferramentas da conta recebem o cliente da sessão identificada (2º fator), nunca um id vindo da IA; ações exigem proposta num turno anterior + "sim" explícito; agenda/chamado/respostas são RPCs transacionais com auditoria em `whatsapp_acoes`.
+- Gemini 3 no modo compatível com OpenAI exige reenviar a assinatura de raciocínio das chamadas de ferramenta: isso é feito em `modeloIA`; use um modelo por atendimento.
+

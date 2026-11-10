@@ -3,6 +3,8 @@ import { mensagemRecebidaSchema, telefoneWhatsApp, type MensagemRecebida } from 
 
 export interface WhatsAppProvider {
   enviarMensagem(telefone: string, texto: string): Promise<{ status: 'simulada' | 'accepted'; idExterno: string | null }>;
+  /** Marca a mensagem recebida como lida e mostra "digitando…" ao cliente (até ~25 s ou até a resposta). */
+  marcarLidaDigitando(idExterno: string): Promise<void>;
   normalizarMensagemRecebida(payload: unknown): MensagemRecebida[];
 }
 const metaPayload = z.object({ entry: z.array(z.object({ changes: z.array(z.object({ value: z.object({ contacts: z.array(z.object({ wa_id: z.string(), profile: z.object({ name: z.string() }) })).optional(), messages: z.array(z.object({ from: z.string(), id: z.string(), type: z.string(), text: z.object({ body: z.string() }).optional() })).optional() }) })) })) });
@@ -24,6 +26,13 @@ export function obterProvedor(): WhatsAppProvider {
   const config = configuracaoWhatsApp();
   return {
     normalizarMensagemRecebida,
+    async marcarLidaDigitando(idExterno) {
+      if (config.modo === 'simulação' || idExterno.startsWith('sim-')) return;
+      const phone = process.env['WHATSAPP_PHONE_NUMBER_ID'];
+      if (!phone || !/^\d+$/.test(phone)) return;
+      const response = await fetch(`${GRAPH_API}/${phone}/messages`, { method: 'POST', headers: { Authorization: `Bearer ${process.env['WHATSAPP_TOKEN']}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ messaging_product: 'whatsapp', status: 'read', message_id: idExterno, typing_indicator: { type: 'text' } }) });
+      if (!response.ok) console.warn('[whatsapp] não foi possível marcar como lida', response.status, await response.text());
+    },
     async enviarMensagem(telefone, texto) {
       const destino = z.string().regex(/^\d{10,15}$/).parse(telefoneWhatsApp(telefone));
       z.string().min(1).max(4000).parse(texto);

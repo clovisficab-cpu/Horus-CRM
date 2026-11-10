@@ -12,23 +12,28 @@ export const dadosWhatsApp = createServerFn({method:'GET'}).middleware([requireS
   const { configuracaoWhatsApp } = await import('./whatsapp/provider.server');
   const [conversas,clientes] = await Promise.all([context.supabase.from('whatsapp_conversas').select('*,clientes(nome)').order('nao_lidas',{ascending:false}).order('ultima_mensagem_em',{ascending:false}),context.supabase.from('clientes').select('id,nome').order('nome')]);
   if(conversas.error || clientes.error) throw new Error(conversas.error?.message || clientes.error?.message);
-  return {conversas:conversas.data ?? [],clientes:clientes.data ?? [],integracao:configuracaoWhatsApp()};
+  const config=await context.supabase.from('whatsapp_config').select('*').eq('id',true).maybeSingle();
+  if(config.error) throw config.error;
+  return {conversas:conversas.data ?? [],clientes:clientes.data ?? [],integracao:configuracaoWhatsApp(),config:config.data};
 });
 export const simularWhatsApp = createServerFn({method:'POST'}).middleware([requireSupabaseAuth]).inputValidator((d:unknown)=>z.object({telefone:z.string().min(10).max(30),nome:z.string().max(200),texto:z.string().trim().min(1).max(4000)}).parse(d)).handler(async ({data,context})=>{
   await equipe(context);
   const { configuracaoWhatsApp } = await import('./whatsapp/provider.server');
-  if(configuracaoWhatsApp().modo!=='simulação') throw new Error('Simulador disponível somente sem conexão real.');
+  const { numeroDeTeste } = await import('./whatsapp/bot.server');
+  const telefone=telefoneWhatsApp(data.telefone);
+  // Com o WhatsApp conectado, o simulador só aceita números de teste (DDD 00), para nunca responder a um cliente real.
+  if(configuracaoWhatsApp().modo!=='simulação' && !numeroDeTeste(telefone)) throw new Error('Com o WhatsApp conectado, simule com um número de teste com DDD 00, por exemplo (00) 99999-0001.');
   const {supabaseAdmin:db}=await import('@/integrations/supabase/client.server');
-  const input=mensagemRecebidaSchema.parse({...data,telefone:telefoneWhatsApp(data.telefone),idExterno:`sim-${crypto.randomUUID()}`});
+  const input=mensagemRecebidaSchema.parse({...data,telefone,idExterno:`sim-${crypto.randomUUID()}`});
   const r=await db.rpc('whatsapp_receber',{_telefone:input.telefone,_nome:input.nome,_texto:input.texto,_externo:input.idExterno});
   if(r.error) throw r.error;
   const mensagem=await db.from('whatsapp_mensagens').select('conversa_id').eq('id',r.data).single();
   if(mensagem.error) throw mensagem.error;
-  const {processarPendentes}=await import('./whatsapp/bot.server');
-  await processarPendentes();
+  const {atenderConversa}=await import('./iris/fluxo.server');
+  await atenderConversa(mensagem.data.conversa_id,{esperaMs:0});
   return {conversaId:mensagem.data.conversa_id};
 });
-export const agirWhatsApp=createServerFn({method:'POST'}).middleware([requireSupabaseAuth]).inputValidator((d:unknown)=>z.object({id:z.string().uuid(),acao:z.enum(['assumir','bot','lida','vincular','lead','responder']),texto:z.string().trim().max(4000).optional(),clienteId:z.string().uuid().nullable().optional()}).parse(d)).handler(async ({data,context})=>{
+export const agirWhatsApp=createServerFn({method:'POST'}).middleware([requireSupabaseAuth]).inputValidator((d:unknown)=>z.object({id:z.string().uuid(),acao:z.enum(['assumir','bot','lida','vincular','lead','responder','resolver_urgencia']),texto:z.string().trim().max(4000).optional(),clienteId:z.string().uuid().nullable().optional()}).parse(d)).handler(async ({data,context})=>{
   await equipe(context);
   const conversa=await context.supabase.from('whatsapp_conversas').select('*').eq('id',data.id).single();
   if(conversa.error) throw conversa.error;
@@ -45,7 +50,14 @@ export const agirWhatsApp=createServerFn({method:'POST'}).middleware([requireSup
     const r=await context.supabase.from('leads').insert({nome:conversa.data.nome || conversa.data.telefone,telefone:conversa.data.telefone,origem:'whatsapp',observacoes:conversa.data.ultima_mensagem}).select('id').single();
     if(r.error) throw r.error;
     const u=await db.from('whatsapp_conversas').update({lead_id:r.data.id}).eq('id',data.id); if(u.error) throw u.error;
+  } else if(data.acao==='resolver_urgencia') {
+    const r=await context.supabase.from('whatsapp_conversas').update({urgente:false}).eq('id',data.id); if(r.error) throw r.error;
   } else {
+    if(data.acao==='assumir'||data.acao==='bot') {
+      // Assumir: a Íris fica em silêncio. Devolver: o próximo contato abre um atendimento novo da Íris.
+      const a=await db.from('whatsapp_atendimentos').update(data.acao==='assumir'?{atendido_por:'humano',status:'transferido'}:{status:'encerrado',encerrado_em:new Date().toISOString()}).eq('conversa_id',data.id).in('status',data.acao==='assumir'?['aberto']:['aberto','transferido']);
+      if(a.error) throw a.error;
+    }
     if(data.acao==='vincular' && data.clienteId) {const c=await context.supabase.from('clientes').select('id').eq('id',data.clienteId).single();if(c.error) throw c.error;}
     const r=await context.supabase.from('whatsapp_conversas').update(data.acao==='vincular'?{cliente_id:data.clienteId ?? null}:data.acao==='lida'?{nao_lidas:0}:{modo:data.acao==='bot'?'bot':'humano'}).eq('id',data.id);
     if(r.error) throw r.error;
@@ -64,5 +76,21 @@ export const enviarRespostaChamadoWhatsApp=createServerFn({method:'POST'}).middl
     if(m.error) throw m.error;
     if(m.data) {const {enviarPendente}=await import('./whatsapp/bot.server');await enviarPendente(m.data.id);}
   }
+  return {ok:true};
+});
+export const salvarConfigIris=createServerFn({method:'POST'}).middleware([requireSupabaseAuth]).inputValidator((d:unknown)=>z.object({
+  iris_ativa:z.boolean(),
+  horario:z.record(z.enum(['0','1','2','3','4','5','6']),z.tuple([z.string().regex(/^\d{2}:\d{2}$/),z.string().regex(/^\d{2}:\d{2}$/)])),
+  plantao_telefone:z.string().trim().max(30).nullable(),
+  endereco_aprovacao_humana:z.boolean(),
+  limite_mensagens_minuto:z.number().int().min(1).max(60),
+  visita_horarios:z.array(z.string().regex(/^\d{2}:\d{2}$/)).min(1).max(12),
+  visita_duracao_min:z.number().int().min(30).max(480),
+}).parse(d)).handler(async ({data,context})=>{
+  await equipe(context);
+  const plantao=data.plantao_telefone?telefoneWhatsApp(data.plantao_telefone):null;
+  if(plantao && !/^\d{12,13}$/.test(plantao)) throw new Error('Número do plantão inválido. Use DDD + número, por exemplo (27) 99999-0000.');
+  const r=await context.supabase.from('whatsapp_config').update({...data,plantao_telefone:plantao,updated_at:new Date().toISOString()}).eq('id',true);
+  if(r.error) throw r.error;
   return {ok:true};
 });

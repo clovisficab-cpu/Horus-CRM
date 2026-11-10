@@ -1,5 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
 
+/** Continua o trabalho depois da resposta (Cloudflare: waitUntil, até ~30 s). Sem ele (dev local), roda solto. */
+function emSegundoPlano(request: Request, tarefa: Promise<unknown>) {
+  const waitUntil = (request as Request & { waitUntil?: (p: Promise<unknown>) => void }).waitUntil;
+  if (typeof waitUntil === 'function') waitUntil(tarefa); else void tarefa;
+}
+
 export const Route=createFileRoute('/api/public/whatsapp/webhook')({server:{handlers:{
   GET:async ({request})=>{
     const u=new URL(request.url); const token=process.env['WHATSAPP_VERIFY_TOKEN'];
@@ -26,11 +32,18 @@ export const Route=createFileRoute('/api/public/whatsapp/webhook')({server:{hand
     if(event.error)return new Response('Falha ao ler recebimento',{status:500});
     if(event.data.processed_at)return new Response('ok');
     try{
+      const recebidas=new Map<string,string>(); // conversa -> último id externo
       for(const m of obterProvedor().normalizarMensagemRecebida(payload)){
         const r=await db.rpc('whatsapp_receber',{_telefone:m.telefone,_nome:m.nome,_texto:m.texto,_externo:m.idExterno});if(r.error)throw r.error;
+        const msg=await db.from('whatsapp_mensagens').select('conversa_id').eq('id',r.data).single();if(msg.error)throw msg.error;
+        recebidas.set(msg.data.conversa_id,m.idExterno);
       }
       const processed=await db.from('whatsapp_webhook_events').update({processed_at:new Date().toISOString(),processing_error:null}).eq('id',event.data.id);if(processed.error)throw processed.error;
-      // AI work is durable and processed separately, never inside Meta's short acknowledgement window.
+      // Mensagem gravada: responde 200 à Meta já e atende em segundo plano (o agendador cobre se isto for interrompido).
+      if(recebidas.size){
+        const {aoReceberMensagem}=await import('@/lib/iris/fluxo.server');
+        emSegundoPlano(request,Promise.all([...recebidas].map(([conversa,externo])=>aoReceberMensagem(conversa,externo).catch(e=>console.error('[iris] atendimento em segundo plano falhou',e)))));
+      }
       return new Response('ok');
     }catch(err){const failed=await db.from('whatsapp_webhook_events').update({processing_error:err instanceof Error?err.message:'Falha'}).eq('id',event.data.id);return new Response(failed.error?'Falha ao registrar erro':'Falha no processamento',{status:500});}
   },

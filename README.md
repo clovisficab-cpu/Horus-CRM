@@ -7,7 +7,7 @@ Construído originalmente na Lovable e migrado para desenvolvimento direto. Tecn
 ## Estrutura
 
 - `src/routes/` — páginas (site público, `/auth`, `/admin/*`, `/portal/*`) e APIs (`/api/public/whatsapp/*`).
-- `src/lib/` — regras de negócio, IA (`ai/`), WhatsApp (`whatsapp/`, com a "tomada" de provedor em `provider.server.ts`).
+- `src/lib/` — regras de negócio, IA (`ai/`), WhatsApp (`whatsapp/`, com a "tomada" de provedor em `provider.server.ts`) e a Íris, atendente com IA do WhatsApp (`iris/`: regras fixas, prompt, ferramentas e fluxo de atendimento).
 - `drizzle/migrations/` — histórico de migrações do banco.
 - `supabase/horus-setup.sql` — script único para criar o banco num projeto Supabase novo.
 
@@ -31,8 +31,8 @@ Secretas (cadastrar na Cloudflare: Worker → Settings → Variables and Secrets
 | `SUPABASE_URL` | URL do projeto Supabase |
 | `SUPABASE_PUBLISHABLE_KEY` | chave publishable/anon |
 | `SUPABASE_SERVICE_ROLE_KEY` | chave *secret/service_role* (operações administrativas no servidor) |
-| `AI_API_KEY` | chave da IA (padrão: Google Gemini — aistudio.google.com) |
-| `AI_BASE_URL`, `AI_MODEL` | opcionais, para trocar de provedor/modelo de IA |
+| `AI_API_KEY` | chave da IA (padrão: Google Gemini — aistudio.google.com). Para a Íris, use uma chave com **faturamento ativado**: o plano gratuito permite só ~20 pedidos/dia no modelo principal |
+| `AI_BASE_URL`, `AI_MODEL`, `AI_MODEL_RESERVA` | opcionais, para trocar de provedor/modelo de IA (padrão: `gemini-3.5-flash`, reserva `gemini-flash-lite-latest`) |
 | `CRON_SECRET` | protege `/api/public/whatsapp/processar` (agendador) |
 | `WHATSAPP_PROVIDER`, `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` | integração com o WhatsApp (sem elas, modo simulação) |
 
