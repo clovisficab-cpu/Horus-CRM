@@ -1,6 +1,7 @@
 // Regras determinísticas da Íris (sem IA): emergência, identificação, horário, divisão de respostas.
 
 const sem = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+export const semAcento = sem;
 
 /** Relato de crime em andamento, invasão, incêndio ou risco à vida. */
 export function detectarEmergencia(texto: string) {

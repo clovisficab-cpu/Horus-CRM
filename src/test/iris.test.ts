@@ -98,14 +98,38 @@ describe('Íris: ações só com confirmação e só para o cliente identificado
     await executarTurno(e, repo, [modelo([agendar, { texto: 'Posso agendar?' }])]);
     expect(visita).not.toHaveBeenCalled();
   });
-  it('sem identificação, as ferramentas da conta nem são oferecidas à IA', async () => {
+  it('executa quando o cliente diz "sim" à pergunta da Íris com o mesmo dia e hora', async () => {
+    const { repo, visita } = repoFalso();
+    const e = entrada(['sim, pode agendar']);
+    e.historico = [{ remetente: 'ia', texto: 'Posso agendar a visita para quarta-feira, 11/11, às 8h?' }];
+    await executarTurno(e, repo, [modelo([agendar, { texto: 'Agendado!' }])]);
+    expect(visita).toHaveBeenCalledTimes(1);
+  });
+  it('não executa se a pergunta da Íris citava outro horário', async () => {
+    const { repo, visita } = repoFalso();
+    const e = entrada(['sim']);
+    e.historico = [{ remetente: 'ia', texto: 'Posso agendar a visita para quarta-feira, 11/11, às 10h?' }];
+    await executarTurno(e, repo, [modelo([agendar, { texto: 'Posso agendar às 8h?' }])]);
+    expect(visita).not.toHaveBeenCalled();
+  });
+  it('número sem cadastro: as ferramentas da conta nem são oferecidas à IA', async () => {
     const { repo } = repoFalso();
-    const m = modelo([{ texto: 'Para continuar, me informe os 3 primeiros dígitos do CPF.' }]);
-    await executarTurno(entrada(['quanto eu devo?'], { cliente_id: null, identificado_em: null }), repo, [m]);
+    const m = modelo([{ texto: 'Posso te ajudar com nossos planos.' }]);
+    const e = entrada(['quanto eu devo?'], { cliente_id: null, identificado_em: null });
+    e.clienteDoTelefone = null;
+    await executarTurno(e, repo, [m]);
     const nomes = (m.doGenerateCalls[0]?.tools ?? []).map((t) => t.name);
-    expect(nomes).toContain('verificar_identidade');
     expect(nomes).not.toContain('consultar_debito');
-    expect(nomes).not.toContain('agendar_visita');
+    expect(nomes).not.toContain('verificar_identidade');
+  });
+  it('cadastrado mas não identificado: a ferramenta da conta recusa até a identidade conferir', async () => {
+    const { repo } = repoFalso();
+    const debito = vi.spyOn(repo, 'debito');
+    await executarTurno(entrada(['quanto eu devo?'], { cliente_id: null, identificado_em: null }), repo, [modelo([{ ferramenta: 'consultar_debito', entrada: {} }, { texto: 'Me informe os 3 primeiros dígitos do CPF.' }])]);
+    expect(debito).not.toHaveBeenCalled();
+    // identificou e consultou na mesma resposta
+    await executarTurno(entrada(['123'], { cliente_id: null, identificado_em: null }), repo, [modelo([{ ferramenta: 'verificar_identidade', entrada: { resposta: '123' } }, { ferramenta: 'consultar_debito', entrada: {} }, { texto: 'Você não tem débitos.' }])]);
+    expect(debito).toHaveBeenCalledWith('c1');
   });
   it('conta só uma tentativa de identificação por mensagem do cliente', async () => {
     const { repo } = repoFalso();

@@ -2,7 +2,7 @@ import { generateText, stepCountIs, tool, type LanguageModel, type ToolSet } fro
 import { z } from 'zod';
 import { categoriasIA, prioridadesIA } from '../chamados-ia-rules';
 import { PROMPT_IRIS, contextoIris, type SituacaoIris } from './prompt';
-import { MSG_FALHA, confirmacao, detectarEmergencia, exigeHumano, fatorConfere, msgEmergencia, pedeGravacao, primeiroNome } from './regras';
+import { MSG_FALHA, confirmacao, semAcento, detectarEmergencia, exigeHumano, fatorConfere, msgEmergencia, pedeGravacao, primeiroNome } from './regras';
 
 /** Acesso a dados usado pelas ferramentas. Toda função de conta recebe o cliente da SESSÃO (nunca da IA). */
 export interface RepositorioIris {
@@ -79,22 +79,40 @@ export async function executarTurno(e: EntradaTurno, repo: RepositorioIris, mode
   };
   if (identificado()) situacao.primeiroNome = primeiroNome((await repo.cliente(at.cliente_id!))?.nome);
 
-  /** Ação que exige confirmação do cliente: só executa se a MESMA ação foi proposta num turno anterior. */
-  async function comConfirmacao<T>(ferramenta: string, chave: string, resumo: string, executar: () => Promise<T>) {
+  const ultimaIris = [...e.historico].reverse().find((m) => m.remetente === 'ia')?.texto ?? '';
+  const clienteConfirmou = confirmacao(e.novas[e.novas.length - 1] ?? '');
+
+  /**
+   * Ação que exige confirmação do cliente. Executa só se a última mensagem do cliente é um "sim" explícito E
+   * (a pergunta anterior da Íris descrevia esta ação — mesma data/hora, no caso de visita — OU a mesma ação
+   * ficou pendente num turno anterior). Caso contrário, registra a proposta e pede a confirmação.
+   */
+  async function comConfirmacao<T>(ferramenta: string, chave: string, resumo: string, propostaNoTexto: (texto: string) => boolean, executar: () => Promise<T>) {
     const p = at.acao_pendente;
-    // Confirmação = mesma ação proposta num turno anterior + última mensagem do cliente é um "sim" explícito.
-    const confirmavel = p && p.ferramenta === ferramenta && p.chave === chave && at.acao_pendente_em && at.acao_pendente_em < e.inicioTurno && confirmacao(e.novas[e.novas.length - 1] ?? '');
-    if (!confirmavel) {
+    const pendenteAnterior = Boolean(p && p.ferramenta === ferramenta && p.chave === chave && at.acao_pendente_em && at.acao_pendente_em < e.inicioTurno);
+    const perguntou = ultimaIris.includes('?') && propostaNoTexto(semAcento(ultimaIris));
+    if (!clienteConfirmou || !(pendenteAnterior || perguntou)) {
       at.acao_pendente = { ferramenta, chave, resumo };
       at.acao_pendente_em = new Date().toISOString();
       await repo.salvarAtendimento({ acao_pendente: at.acao_pendente, acao_pendente_em: at.acao_pendente_em });
-      return { status: 'confirmacao_necessaria', instrucao: `Pergunte ao cliente se pode: ${resumo}. Só chame esta ferramenta de novo, com os mesmos dados, depois que ele confirmar.` };
+      return { status: 'confirmacao_necessaria', instrucao: `Ainda NÃO foi feito. Pergunte ao cliente, uma vez só, se pode ${resumo}. Quando ele disser "sim", chame esta ferramenta de novo com os mesmos dados.` };
     }
     at.acao_pendente = null; at.acao_pendente_em = null;
     await repo.salvarAtendimento({ acao_pendente: null, acao_pendente_em: null });
     try { const resultado = await executar(); acoesExecutadas++; return { status: 'executado', resultado }; }
     catch (err) { return { status: 'erro', mensagem: err instanceof Error ? err.message : 'Não foi possível concluir.' }; }
   }
+  /** A pergunta anterior citava este horário (dia/mês e hora)? */
+  const citaHorario = (iso: string) => (t: string) => {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
+    const hora = Number(p['hour']); const min = p['minute'];
+    const dia = `${p['day']}/${p['month']}`;
+    const temDia = t.includes(dia) || t.includes(`${Number(p['day'])}/${Number(p['month'])}`);
+    const temHora = min === '00' ? new RegExp(`\\b0?${hora}\\s?(h|:00|horas?)\\b`).test(t) : t.includes(`${hora}:${min}`) || t.includes(`${hora}h${min}`);
+    return temDia && temHora;
+  };
+  /** Exige identificação na hora de executar (as ferramentas aparecem para quem tem cadastro pelo telefone). */
+  const daConta = <T,>(fn: (cid: string) => Promise<T>) => async () => identificado() ? fn(at.cliente_id!) : { erro: 'Cliente ainda não identificado. Peça os 3 primeiros dígitos do CPF/CNPJ ou o nome completo e use verificar_identidade.' };
 
   const tools: ToolSet = {
     transferir_para_humano: tool({
@@ -125,7 +143,7 @@ export async function executarTurno(e: EntradaTurno, repo: RepositorioIris, mode
         if (c && fatorConfere(resposta, c)) {
           at.cliente_id = e.clienteDoTelefone; at.identificado_em = new Date().toISOString();
           await repo.salvarAtendimento({ cliente_id: at.cliente_id, identificado_em: at.identificado_em });
-          return { confere: true, primeiro_nome: primeiroNome(c.nome), observacao: 'Ferramentas da conta liberadas a partir da próxima mensagem; responda agora ao que o cliente pediu, se puder, ou pergunte como ajudar.' };
+          return { confere: true, primeiro_nome: primeiroNome(c.nome), observacao: 'Identidade confirmada: as ferramentas da conta já funcionam. Atenda agora ao que o cliente pediu.' };
         }
         at.falhas_identificacao += 1;
         await repo.salvarAtendimento({ falhas_identificacao: at.falhas_identificacao });
@@ -134,42 +152,41 @@ export async function executarTurno(e: EntradaTurno, repo: RepositorioIris, mode
     });
   }
 
-  if (identificado()) {
-    const cid = at.cliente_id!;
+  if (e.clienteDoTelefone && at.falhas_identificacao < 2) {
     Object.assign(tools, {
-      consultar_cameras: tool({ description: 'Status das câmeras do cliente identificado.', inputSchema: z.object({}), execute: async () => { usar('consultar_cameras'); return { cameras: await repo.cameras(cid) }; } }),
-      consultar_chamados_e_visitas: tool({ description: 'Chamados abertos (status, previsão, responsável) e visitas técnicas agendadas do cliente identificado. As visitas vêm numeradas na ordem.', inputSchema: z.object({}), execute: async () => {
+      consultar_cameras: tool({ description: 'Status das câmeras do cliente (exige identidade confirmada).', inputSchema: z.object({}), execute: daConta(async (cid) => { usar('consultar_cameras'); return { cameras: await repo.cameras(cid) }; }) }),
+      consultar_chamados_e_visitas: tool({ description: 'Chamados abertos (status, previsão, responsável) e visitas técnicas agendadas, numeradas na ordem (exige identidade confirmada).', inputSchema: z.object({}), execute: daConta(async (cid) => {
         usar('consultar_chamados_e_visitas'); const r = await repo.resumoCliente(cid);
         return { chamados: r.chamados, visitas: r.visitas.map((v, i) => ({ numero: i + 1, quando: fmt(v.agendada_em), tipo: v.tipo, tecnico: v.tecnico })) };
-      } }),
-      consultar_debito: tool({ description: 'Faturas em aberto/vencidas do cliente identificado. Use só se o cliente pedir.', inputSchema: z.object({}), execute: async () => {
+      }) }),
+      consultar_debito: tool({ description: 'Faturas em aberto/vencidas. Use só se o cliente pedir (exige identidade confirmada).', inputSchema: z.object({}), execute: daConta(async (cid) => {
         usar('consultar_debito'); const f = await repo.debito(cid);
         return { quantidade: f.length, total: f.reduce((s, x) => s + Number(x.valor), 0), faturas: f };
-      } }),
-      horarios_disponiveis: tool({ description: 'Próximos horários livres para visita técnica (agenda real).', inputSchema: z.object({}), execute: async () => {
+      }) }),
+      horarios_disponiveis: tool({ description: 'Próximos horários livres para visita técnica (agenda real; exige identidade confirmada).', inputSchema: z.object({}), execute: daConta(async () => {
         usar('horarios_disponiveis'); const h = await repo.horariosLivres();
         return { horarios: h.map((iso) => ({ iso, texto: fmt(iso) })) };
-      } }),
-      abrir_chamado: tool({
-        description: 'Abre chamado técnico para o cliente identificado (exige confirmação do cliente).',
-        inputSchema: z.object({ assunto: z.string().min(3).max(200), descricao: z.string().max(2000), categoria: z.enum(categoriasIA), prioridade: z.enum(prioridadesIA) }),
-        execute: async (d) => { usar('abrir_chamado'); return comConfirmacao('abrir_chamado', d.categoria, `abrir um chamado sobre "${d.assunto}"`, () => repo.abrirChamado(cid, d)); },
-      }),
-      agendar_visita: tool({
-        description: 'Agenda visita técnica num horário de horarios_disponiveis (exige confirmação do cliente).',
-        inputSchema: z.object({ horario_iso: z.string().describe('Valor "iso" retornado por horarios_disponiveis.'), motivo: z.string().max(300) }),
-        execute: async (d) => { usar('agendar_visita'); return comConfirmacao('agendar_visita', d.horario_iso, `agendar a visita para ${fmt(d.horario_iso)}`, () => repo.visita(cid, null, d.horario_iso, d.motivo)); },
-      }),
-      reagendar_visita: tool({
-        description: 'Reagenda uma visita agendada (número da lista) para um novo horário de horarios_disponiveis; libera o horário antigo (exige confirmação).',
-        inputSchema: z.object({ visita_numero: z.number().int().min(1), horario_iso: z.string() }),
-        execute: async (d) => { usar('reagendar_visita'); return comConfirmacao('reagendar_visita', `${d.visita_numero}|${d.horario_iso}`, `reagendar a visita para ${fmt(d.horario_iso)}`, () => repo.visita(cid, d.visita_numero, d.horario_iso, 'Reagendamento pelo WhatsApp')); },
-      }),
-      cancelar_visita: tool({
-        description: 'Cancela uma visita agendada (número da lista). Só a pedido do cliente e com confirmação explícita.',
-        inputSchema: z.object({ visita_numero: z.number().int().min(1) }),
-        execute: async (d) => { usar('cancelar_visita'); return comConfirmacao('cancelar_visita', String(d.visita_numero), `cancelar a visita nº ${d.visita_numero}`, () => repo.visita(cid, d.visita_numero, null, '')); },
-      }),
+      }) }),
+    });
+    tools['abrir_chamado'] = tool({
+      description: 'Abre chamado técnico (exige identidade confirmada e o "sim" do cliente à sua pergunta).',
+      inputSchema: z.object({ assunto: z.string().min(3).max(200), descricao: z.string().max(2000), categoria: z.enum(categoriasIA), prioridade: z.enum(prioridadesIA) }),
+      execute: async (d) => { usar('abrir_chamado'); return daConta((cid) => comConfirmacao('abrir_chamado', d.categoria, `abrir um chamado sobre "${d.assunto}"`, (t) => /chamado|atendimento tecnico|ocorrencia/.test(t), () => repo.abrirChamado(cid, d)))(); },
+    });
+    tools['agendar_visita'] = tool({
+      description: 'Agenda visita técnica num horário de horarios_disponiveis (exige identidade confirmada e o "sim" do cliente à pergunta com esse dia e hora).',
+      inputSchema: z.object({ horario_iso: z.string().describe('Valor "iso" retornado por horarios_disponiveis.'), motivo: z.string().max(300) }),
+      execute: async (d) => { usar('agendar_visita'); return daConta((cid) => comConfirmacao('agendar_visita', d.horario_iso, `agendar a visita para ${fmt(d.horario_iso)}`, citaHorario(d.horario_iso), () => repo.visita(cid, null, d.horario_iso, d.motivo)))(); },
+    });
+    tools['reagendar_visita'] = tool({
+      description: 'Reagenda uma visita agendada (número da lista de consultar_chamados_e_visitas) para um novo horário de horarios_disponiveis; libera o horário antigo (exige o "sim" do cliente).',
+      inputSchema: z.object({ visita_numero: z.number().int().min(1), horario_iso: z.string() }),
+      execute: async (d) => { usar('reagendar_visita'); return daConta((cid) => comConfirmacao('reagendar_visita', `${d.visita_numero}|${d.horario_iso}`, `mudar a visita para ${fmt(d.horario_iso)}`, citaHorario(d.horario_iso), () => repo.visita(cid, d.visita_numero, d.horario_iso, 'Reagendamento pelo WhatsApp')))(); },
+    });
+    tools['cancelar_visita'] = tool({
+      description: 'Cancela uma visita agendada (número da lista). Só a pedido do cliente e com o "sim" explícito dele.',
+      inputSchema: z.object({ visita_numero: z.number().int().min(1) }),
+      execute: async (d) => { usar('cancelar_visita'); return daConta((cid) => comConfirmacao('cancelar_visita', String(d.visita_numero), `cancelar a visita nº ${d.visita_numero}`, (t) => /cancel/.test(t), () => repo.visita(cid, d.visita_numero, null, '')))(); },
     });
   }
 
